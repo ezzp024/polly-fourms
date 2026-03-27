@@ -13,6 +13,11 @@
   const commentsList = document.getElementById("commentsList");
   const replyForm = document.getElementById("replyForm");
   const backToSection = document.getElementById("backToSection");
+  const relatedThreads = document.getElementById("relatedThreads");
+  const quoteReply = document.getElementById("quoteReply");
+  const copyThreadLink = document.getElementById("copyThreadLink");
+
+  let cachedPost = null;
 
   if (!id) {
     threadTitle.textContent = "Thread not found";
@@ -22,13 +27,15 @@
   }
 
   async function load() {
-    const [post, allComments] = await Promise.all([api.getPostById(id), api.getComments()]);
+    const [post, allPosts, allComments] = await Promise.all([api.getPostById(id), api.getPosts(), api.getComments()]);
     if (!post) {
       threadTitle.textContent = "Thread not found";
       threadPost.innerHTML = '<p class="muted">This thread does not exist.</p>';
       replyForm.style.display = "none";
       return;
     }
+
+    cachedPost = post;
 
     const section = getSection(post.category);
     breadcrumb.textContent = `Forum Index > ${section.name} > ${post.title}`;
@@ -57,6 +64,24 @@
           )
           .join("")
       : '<p class="muted">No replies yet.</p>';
+
+    const related = allPosts
+      .filter((item) => item.id !== post.id && item.category === post.category)
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+      .slice(0, 6);
+
+    relatedThreads.innerHTML = related.length
+      ? related
+          .map(
+            (item) => `
+              <article class="stack-item">
+                <strong><a href="thread.html?id=${item.id}">${escapeHtml(item.title)}</a></strong>
+                <small>${formatDate(item.created_at)}</small>
+              </article>
+            `
+          )
+          .join("")
+      : '<p class="muted">No related threads yet.</p>';
   }
 
   try {
@@ -85,6 +110,26 @@
       await load();
     } catch (error) {
       alert(`Could not submit reply: ${error.message || String(error)}`);
+    }
+  });
+
+  quoteReply.addEventListener("click", () => {
+    const textArea = replyForm.querySelector("textarea[name='body']");
+    if (!cachedPost || !textArea) return;
+    const quote = `> ${cachedPost.author_name} wrote:\n> ${cachedPost.body.replace(/\n/g, "\n> ")}\n\n`;
+    textArea.value = `${quote}${textArea.value}`;
+    textArea.focus();
+  });
+
+  copyThreadLink.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      copyThreadLink.textContent = "Copied";
+      setTimeout(() => {
+        copyThreadLink.textContent = "Copy Thread Link";
+      }, 1200);
+    } catch {
+      alert("Could not copy link. Please copy URL from address bar.");
     }
   });
 })();

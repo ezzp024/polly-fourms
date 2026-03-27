@@ -69,12 +69,15 @@
       </div>
 
       <div class="thread-box">
+        <div class="section-tabs" id="sectionTabs"></div>
+
         <div class="row-fields">
           <input id="threadSearch" type="search" placeholder="Search this section..." />
           <select id="sortBy">
             <option value="latest">Latest</option>
             <option value="oldest">Oldest</option>
             <option value="replies">Most Replies</option>
+            <option value="title">Title A-Z</option>
           </select>
         </div>
 
@@ -89,6 +92,8 @@
           </thead>
           <tbody id="threadRows"></tbody>
         </table>
+
+        <div class="pager" id="threadPager"></div>
       </div>
     </section>
 

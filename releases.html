@@ -47,10 +47,19 @@
       </div>
 
       <div class="compose-box">
-        <input id="releaseSearch" type="search" placeholder="Search release name or tags..." />
+        <div class="row-fields">
+          <input id="releaseSearch" type="search" placeholder="Search release name or tags..." />
+          <select id="releaseSort">
+            <option value="latest">Latest</option>
+            <option value="oldest">Oldest</option>
+            <option value="replies">Most Replies</option>
+            <option value="title">Title A-Z</option>
+          </select>
+        </div>
       </div>
 
       <div id="releaseGrid" class="release-grid"></div>
+      <div id="releasePager" class="pager"></div>
     </section>
 
     <aside class="sidebar">

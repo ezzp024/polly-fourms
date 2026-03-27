@@ -6,6 +6,13 @@ A stylish, GitHub Pages-ready community forum where users can:
 - discuss in comments
 - publish software tools/releases with links and tags
 
+Current UI/features include:
+
+- classic multi-page forum layout (index, section, thread, releases)
+- search, sorting, and pagination in sections/releases
+- recent activity feed, top contributors panel, and forum stats
+- thread quick actions (copy link + quote main post)
+
 The site works in two modes:
 
 1. **Demo mode** (no setup): stores posts/comments in `localStorage`.

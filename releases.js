@@ -1,11 +1,16 @@
 (async function () {
-  const { initIdentityForm, escapeHtml, formatDate } = window.PollyCommon;
+  const { initIdentityForm, escapeHtml, formatDate, renderPager } = window.PollyCommon;
   const api = window.PollyApi.createApi();
 
   initIdentityForm();
 
   const searchInput = document.getElementById("releaseSearch");
+  const releaseSort = document.getElementById("releaseSort");
   const releaseGrid = document.getElementById("releaseGrid");
+  const releasePager = document.getElementById("releasePager");
+
+  const PAGE_SIZE = 10;
+  let currentPage = 1;
 
   let posts = [];
   let comments = [];
@@ -23,8 +28,20 @@
       return !query || text.includes(query);
     });
 
-    releaseGrid.innerHTML = filtered.length
-      ? filtered
+    filtered.sort((a, b) => {
+      if (releaseSort.value === "oldest") return Date.parse(a.created_at) - Date.parse(b.created_at);
+      if (releaseSort.value === "replies") return (countByPost.get(b.id) || 0) - (countByPost.get(a.id) || 0);
+      if (releaseSort.value === "title") return a.title.localeCompare(b.title);
+      return Date.parse(b.created_at) - Date.parse(a.created_at);
+    });
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageRows = filtered.slice(start, start + PAGE_SIZE);
+
+    releaseGrid.innerHTML = pageRows.length
+      ? pageRows
           .map((post) => {
             const tags = Array.isArray(post.tags) ? post.tags : [];
             return `
@@ -40,6 +57,11 @@
           })
           .join("")
       : '<p class="muted">No releases found.</p>';
+
+    renderPager(releasePager, currentPage, totalPages, (next) => {
+      currentPage = next;
+      render();
+    });
   }
 
   try {
@@ -51,5 +73,12 @@
     return;
   }
 
-  searchInput.addEventListener("input", render);
+  searchInput.addEventListener("input", () => {
+    currentPage = 1;
+    render();
+  });
+  releaseSort.addEventListener("change", () => {
+    currentPage = 1;
+    render();
+  });
 })();
