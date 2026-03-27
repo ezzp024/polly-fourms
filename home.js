@@ -1,5 +1,15 @@
 (async function () {
-  const { SECTION_META, formatDate, formatRelative, escapeHtml, initIdentityForm, updateTopMetrics } = window.PollyCommon;
+  const {
+    SECTION_META,
+    formatDate,
+    formatRelative,
+    escapeHtml,
+    initIdentityForm,
+    updateTopMetrics,
+    buildMemberStats,
+    profileLink,
+    isModerator
+  } = window.PollyCommon;
   const api = window.PollyApi.createApi();
 
   initIdentityForm();
@@ -11,7 +21,19 @@
   const forumStats = document.getElementById("forumStats");
 
   try {
-    const [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
+    const [postsRaw, comments] = await Promise.all([api.getPosts(), api.getComments()]);
+    const posts = isModerator() ? postsRaw : postsRaw.filter((p) => !p.is_hidden);
+
+    posts.sort((a, b) => {
+      const aPin = a.is_pinned ? 1 : 0;
+      const bPin = b.is_pinned ? 1 : 0;
+      if (aPin !== bPin) return bPin - aPin;
+      const aSticky = a.is_sticky ? 1 : 0;
+      const bSticky = b.is_sticky ? 1 : 0;
+      if (aSticky !== bSticky) return bSticky - aSticky;
+      return Date.parse(b.created_at) - Date.parse(a.created_at);
+    });
+
     updateTopMetrics(posts, comments);
 
     const repliesByPost = comments.reduce((map, comment) => {
@@ -34,7 +56,7 @@
         const replyCount = sectionPosts.reduce((sum, post) => sum + (repliesByPost.get(post.id) || 0), 0);
         const latest = sectionPosts[0];
         const latestText = latest
-          ? `<div class="latest-meta"><a href="thread.html?id=${latest.id}">${escapeHtml(latest.title)}</a><br>by ${escapeHtml(latest.author_name)} - ${formatDate(latest.created_at)}</div>`
+          ? `<div class="latest-meta"><a href="thread.html?id=${latest.id}">${escapeHtml(latest.title)}</a><br>by <a href="${profileLink(latest.author_name)}">${escapeHtml(latest.author_name)}</a> - ${formatDate(latest.created_at)}</div>`
           : '<span class="muted">No threads yet</span>';
 
         return `
@@ -60,7 +82,7 @@
             (post) => `
               <article class="stack-item">
                 <strong><a href="thread.html?id=${post.id}">${escapeHtml(post.title)}</a></strong>
-                <small>by ${escapeHtml(post.author_name)} - ${formatDate(post.created_at)}</small>
+                <small>by <a href="${profileLink(post.author_name)}">${escapeHtml(post.author_name)}</a> - ${formatDate(post.created_at)}</small>
               </article>
             `
           )
@@ -107,17 +129,23 @@
     for (const comment of comments) {
       authorScore.set(comment.author_name, (authorScore.get(comment.author_name) || 0) + 1);
     }
+    const statsMap = buildMemberStats(posts, comments);
     const leaders = [...authorScore.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
 
     topContributors.innerHTML = leaders.length
       ? leaders
           .map(
-            ([name, score], idx) => `
+            ([name, score], idx) => {
+              const member = statsMap.get(window.PollyCommon.toHandle(name));
+              const rank = member ? member.rank : "Newbie";
+              const rankClass = `badge-rank-${rank.toLowerCase()}`;
+              return `
               <article class="stack-item">
-                <strong>#${idx + 1} ${escapeHtml(name)}</strong>
+                <strong>#${idx + 1} <a href="${profileLink(name)}">${escapeHtml(name)}</a> <span class="badge ${rankClass}">${rank}</span></strong>
                 <small>activity score: ${score}</small>
               </article>
-            `
+            `;
+            }
           )
           .join("")
       : '<p class="muted">No contributors yet.</p>';

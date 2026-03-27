@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Polly Fourms - Thread</title>
+  <title>Polly Fourms - Admin Panel</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700;800&family=Literata:opsz,wght@7..72,700&display=swap" rel="stylesheet" />
@@ -12,7 +12,7 @@
 <body>
   <div class="top-strip">
     <div class="container top-strip-inner">
-      <p>Polly Fourms thread discussion</p>
+      <p>Polly Fourms moderator tools</p>
       <form id="identityForm" class="identity-form" autocomplete="off">
         <label class="visually-hidden" for="nickname">Nickname</label>
         <input id="nickname" name="nickname" type="text" maxlength="24" placeholder="Your nickname" required />
@@ -36,53 +36,68 @@
       <a href="index.html">Forum Index</a>
       <a href="releases.html">Downloads</a>
       <a href="profile.html">Members</a>
-      <a href="admin.html">Admin Panel</a>
+      <a class="is-active" href="admin.html">Admin Panel</a>
     </div>
   </nav>
-
-  <div class="sub-breadcrumb">
-    <div class="container" id="breadcrumb">Forum Index > Thread</div>
-  </div>
 
   <main class="container layout-grid">
     <section class="panel">
       <div class="panel-head">
-        <h1 id="threadTitle">Loading thread...</h1>
+        <h1>Moderation Console</h1>
+        <p id="adminStatus">Checking permissions...</p>
       </div>
 
-      <div class="thread-box">
-        <div class="thread-actions">
-          <button type="button" id="copyThreadLink">Copy Thread Link</button>
-          <button type="button" id="quoteReply">Quote Main Post</button>
-          <button type="button" id="reportThread">Report Thread</button>
-          <button type="button" id="togglePin" class="moderator-only">Pin</button>
-          <button type="button" id="toggleSticky" class="moderator-only">Sticky</button>
-          <button type="button" id="toggleHide" class="moderator-only">Hide</button>
-        </div>
+      <div id="adminDenied" class="compose-box muted">This page is only available for moderator names listed in `config.js`.</div>
 
-        <article id="threadPost" class="thread-post"></article>
+      <div id="adminContent" class="thread-box hidden-block">
+        <h2>Open Reports</h2>
+        <table class="forum-table">
+          <thead>
+            <tr>
+              <th>Reported Thread</th>
+              <th>Reason</th>
+              <th>Reporter</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="reportRows"></tbody>
+        </table>
 
-        <h2>Replies</h2>
-        <div id="commentsList"></div>
+        <h2>Hidden Threads Queue</h2>
+        <table class="forum-table">
+          <thead>
+            <tr>
+              <th>Thread</th>
+              <th>Reason</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="hiddenRows"></tbody>
+        </table>
 
-        <h3>Post Reply</h3>
-        <form id="replyForm" class="compose-box" autocomplete="off">
-          <label>Message<textarea name="body" rows="4" maxlength="500" required></textarea></label>
-          <button type="submit">Submit Reply</button>
-        </form>
+        <h2>Thread Controls</h2>
+        <table class="forum-table">
+          <thead>
+            <tr>
+              <th>Thread</th>
+              <th>Flags</th>
+              <th>Moderation</th>
+            </tr>
+          </thead>
+          <tbody id="controlRows"></tbody>
+        </table>
       </div>
     </section>
 
     <aside class="sidebar">
       <section class="panel mini-panel">
-        <h2>Thread Actions</h2>
-        <a id="backToSection" href="forum.html">Back to section</a>
-        <a href="index.html">Back to forum index</a>
-      </section>
-
-      <section class="panel mini-panel">
-        <h2>Related Threads</h2>
-        <div id="relatedThreads" class="stack-list"></div>
+        <h2>How Access Works</h2>
+        <ul>
+          <li>Set nickname to one listed in `moderatorNames` or `adminNames`.</li>
+          <li>Save nickname in top bar, then refresh this page.</li>
+          <li>For production security, add real auth + server rules later.</li>
+        </ul>
       </section>
     </aside>
   </main>
@@ -91,6 +106,6 @@
   <script src="config.js"></script>
   <script src="forum-api.js"></script>
   <script src="common.js"></script>
-  <script src="thread.js"></script>
+  <script src="admin.js"></script>
 </body>
 </html>

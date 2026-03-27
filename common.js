@@ -1,4 +1,6 @@
 (function () {
+  const CONFIG = window.POLLY_CONFIG || {};
+
   const SECTION_META = {
     software: {
       key: "software",
@@ -84,6 +86,86 @@
     return SECTION_META[key] || SECTION_META.general;
   }
 
+  function toHandle(name) {
+    return String(name || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9_-]/g, "")
+      .slice(0, 32);
+  }
+
+  function profileLink(name) {
+    const handle = encodeURIComponent(toHandle(name));
+    return `profile.html?user=${handle}`;
+  }
+
+  function rankFromScore(score) {
+    if (score >= 25) return "Veteran";
+    if (score >= 8) return "Contributor";
+    return "Newbie";
+  }
+
+  function buildMemberStats(posts, comments) {
+    const byHandle = new Map();
+    const ensure = (name) => {
+      const handle = toHandle(name);
+      if (!byHandle.has(handle)) {
+        byHandle.set(handle, {
+          handle,
+          displayName: name,
+          threads: 0,
+          replies: 0,
+          score: 0,
+          rank: "Newbie",
+          recentThreads: [],
+          recentReplies: []
+        });
+      }
+      return byHandle.get(handle);
+    };
+
+    posts.forEach((post) => {
+      const item = ensure(post.author_name);
+      item.threads += 1;
+      item.score += 3;
+      item.recentThreads.push(post);
+    });
+
+    comments.forEach((comment) => {
+      const item = ensure(comment.author_name);
+      item.replies += 1;
+      item.score += 1;
+      item.recentReplies.push(comment);
+    });
+
+    byHandle.forEach((item) => {
+      item.rank = rankFromScore(item.score);
+      item.recentThreads.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+      item.recentReplies.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+    });
+
+    return byHandle;
+  }
+
+  function getRoleByNickname(name) {
+    const normalized = toHandle(name);
+    const admins = (CONFIG.adminNames || []).map((n) => toHandle(n));
+    const mods = (CONFIG.moderatorNames || []).map((n) => toHandle(n));
+    if (admins.includes(normalized)) return "admin";
+    if (mods.includes(normalized)) return "moderator";
+    return "member";
+  }
+
+  function getCurrentRole() {
+    return getRoleByNickname(getNickname());
+  }
+
+  function isModerator() {
+    const role = getCurrentRole();
+    return role === "admin" || role === "moderator";
+  }
+
   function renderPager(target, currentPage, totalPages, onSelect) {
     target.textContent = "";
     if (totalPages <= 1) {
@@ -136,6 +218,13 @@
     escapeHtml,
     formatDate,
     formatRelative,
+    toHandle,
+    profileLink,
+    rankFromScore,
+    buildMemberStats,
+    getRoleByNickname,
+    getCurrentRole,
+    isModerator,
     getNickname,
     setNickname,
     initIdentityForm,

@@ -384,7 +384,16 @@ button:hover {
 .thread-actions {
   display: flex;
   gap: 0.45rem;
+  flex-wrap: wrap;
   margin-bottom: 0.62rem;
+}
+
+.moderator-only {
+  display: none;
+}
+
+body.is-moderator .moderator-only {
+  display: inline-block;
 }
 
 .compose-box,
@@ -415,8 +424,27 @@ button:hover {
   gap: 0.18rem;
 }
 
+.thread-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.34rem;
+  flex-wrap: wrap;
+}
+
 .thread-row-title small {
   color: #5f748b;
+}
+
+.mod-tools {
+  margin-top: 0.28rem;
+  display: flex;
+  gap: 0.28rem;
+  flex-wrap: wrap;
+}
+
+.mod-tools button {
+  padding: 0.2rem 0.38rem;
+  font-size: 0.8rem;
 }
 
 .sub-breadcrumb {
@@ -483,6 +511,86 @@ button:hover {
   color: #45607a;
 }
 
+.release-actions {
+  margin-top: 0.42rem;
+}
+
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.12rem 0.42rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border: 1px solid #adc2d8;
+  background: #f1f8ff;
+  color: #355d83;
+}
+
+.badge-rank-newbie {
+  border-color: #a8bcd0;
+  color: #446585;
+}
+
+.badge-rank-contributor {
+  border-color: #9fc29f;
+  color: #2f6835;
+  background: #edf8ed;
+}
+
+.badge-rank-veteran {
+  border-color: #d3bc8b;
+  color: #79541d;
+  background: #fff6e4;
+}
+
+.badge-pin {
+  border-color: #d4ba84;
+  color: #7b5b28;
+  background: #fff6e7;
+}
+
+.badge-sticky {
+  border-color: #8fb7ce;
+  color: #2f5d79;
+  background: #edf7ff;
+}
+
+.badge-hidden {
+  border-color: #d8a5a8;
+  color: #7f2f33;
+  background: #ffeff0;
+}
+
+.profile-card {
+  padding: 0.85rem;
+}
+
+.profile-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.profile-kpis article {
+  border: 1px solid #cbdae8;
+  border-radius: 5px;
+  padding: 0.5rem;
+  background: #f5faff;
+}
+
+.profile-kpis strong {
+  display: block;
+  font-size: 1.1rem;
+}
+
+.profile-kpis small {
+  color: #58718b;
+}
+
+.hidden-block {
+  display: none;
+}
+
 .tags {
   display: flex;
   gap: 0.35rem;
@@ -525,6 +633,10 @@ button:hover {
 
   .release-grid {
     grid-template-columns: 1fr;
+  }
+
+  .profile-kpis {
+    grid-template-columns: 1fr 1fr;
   }
 
   .row-fields {

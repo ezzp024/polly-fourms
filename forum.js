@@ -9,7 +9,11 @@
     formatDate,
     formatRelative,
     renderPager,
-    updateTopMetrics
+    updateTopMetrics,
+    isModerator,
+    buildMemberStats,
+    profileLink,
+    toHandle
   } = window.PollyCommon;
 
   const api = window.PollyApi.createApi();
@@ -46,6 +50,12 @@
 
   let posts = [];
   let comments = [];
+  let memberStats = new Map();
+
+  const canModerate = isModerator();
+  if (canModerate) {
+    document.body.classList.add("is-moderator");
+  }
 
   function renderRows() {
     const query = searchInput.value.trim().toLowerCase();
@@ -63,13 +73,19 @@
       return map;
     }, new Map());
 
-    const filtered = posts.filter((post) => {
+    const visiblePosts = canModerate ? posts : posts.filter((post) => !post.is_hidden);
+
+    const filtered = visiblePosts.filter((post) => {
       if (!query) return true;
       const tags = Array.isArray(post.tags) ? post.tags.join(" ") : "";
       return `${post.title} ${post.body} ${tags}`.toLowerCase().includes(query);
     });
 
     filtered.sort((a, b) => {
+      const pin = (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0);
+      if (pin !== 0) return pin;
+      const sticky = (b.is_sticky ? 1 : 0) - (a.is_sticky ? 1 : 0);
+      if (sticky !== 0) return sticky;
       if (sortBy.value === "oldest") return Date.parse(a.created_at) - Date.parse(b.created_at);
       if (sortBy.value === "replies") return (commentsByPost.get(b.id) || 0) - (commentsByPost.get(a.id) || 0);
       if (sortBy.value === "title") return a.title.localeCompare(b.title);
@@ -86,15 +102,25 @@
           .map((post) => {
             const replies = commentsByPost.get(post.id) || 0;
             const lastActivityAt = lastActivityByPost.get(post.id) || post.created_at;
+            const member = memberStats.get(toHandle(post.author_name));
+            const rank = member ? member.rank : "Newbie";
+            const rankClass = `badge-rank-${rank.toLowerCase()}`;
+            const titleBadges = [
+              post.is_pinned ? '<span class="badge badge-pin">Pinned</span>' : "",
+              post.is_sticky ? '<span class="badge badge-sticky">Sticky</span>' : "",
+              post.is_hidden ? '<span class="badge badge-hidden">Hidden</span>' : ""
+            ].join(" ");
+
             return `
               <tr>
                 <td>
                   <div class="thread-row-title">
-                    <strong><a href="thread.html?id=${post.id}">${escapeHtml(post.title)}</a></strong>
+                    <div class="thread-title-row"><strong><a href="thread.html?id=${post.id}">${escapeHtml(post.title)}</a></strong>${titleBadges}</div>
                     <small>${escapeHtml(post.body.slice(0, 110))}${post.body.length > 110 ? "..." : ""}</small>
+                    ${canModerate ? `<div class="mod-tools"><button type="button" data-post="${post.id}" data-action="pin">${post.is_pinned ? "Unpin" : "Pin"}</button><button type="button" data-post="${post.id}" data-action="sticky">${post.is_sticky ? "Unsticky" : "Sticky"}</button><button type="button" data-post="${post.id}" data-action="hide">${post.is_hidden ? "Unhide" : "Hide"}</button></div>` : ""}
                   </div>
                 </td>
-                <td>${escapeHtml(post.author_name)}</td>
+                <td><a href="${profileLink(post.author_name)}">${escapeHtml(post.author_name)}</a> <span class="badge ${rankClass}">${rank}</span></td>
                 <td><span class="stat-pill">${replies}</span></td>
                 <td>${formatDate(lastActivityAt)} <span class="muted">(${formatRelative(lastActivityAt)})</span></td>
               </tr>
@@ -111,6 +137,7 @@
 
   try {
     [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
+    memberStats = buildMemberStats(posts, comments);
     updateTopMetrics(posts, comments);
     posts = posts.filter((p) => p.category === section.key);
     renderRows();
@@ -155,11 +182,48 @@
       newThreadForm.reset();
       currentPage = 1;
       [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
+      memberStats = buildMemberStats(posts, comments);
       updateTopMetrics(posts, comments);
       posts = posts.filter((p) => p.category === section.key);
       renderRows();
     } catch (error) {
       alert(`Could not create thread: ${error.message || String(error)}`);
+    }
+  });
+
+  threadRows.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || target.tagName !== "BUTTON" || !canModerate) return;
+    const postId = target.getAttribute("data-post");
+    const action = target.getAttribute("data-action");
+    if (!postId || !action) return;
+
+    const current = posts.find((p) => p.id === postId);
+    if (!current) return;
+
+    try {
+      if (action === "pin") {
+        await api.updatePost(postId, { is_pinned: !current.is_pinned });
+      }
+      if (action === "sticky") {
+        await api.updatePost(postId, { is_sticky: !current.is_sticky });
+      }
+      if (action === "hide") {
+        const nextHidden = !current.is_hidden;
+        let reason = current.hidden_reason || "";
+        if (nextHidden) {
+          reason = prompt("Reason for hiding this thread:", "Needs moderator review") || "Needs moderator review";
+        }
+        await api.updatePost(postId, { is_hidden: nextHidden, hidden_reason: nextHidden ? reason : "" });
+      }
+
+      [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
+      memberStats = buildMemberStats(posts, comments);
+      updateTopMetrics(posts, comments);
+      posts = posts.filter((p) => p.category === section.key);
+      renderRows();
+    } catch (error) {
+      alert(`Moderation action failed: ${error.message || String(error)}`);
     }
   });
 })();

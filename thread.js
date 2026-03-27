@@ -1,5 +1,15 @@
 (async function () {
-  const { initIdentityForm, getNickname, getSection, escapeHtml, formatDate } = window.PollyCommon;
+  const {
+    initIdentityForm,
+    getNickname,
+    getSection,
+    escapeHtml,
+    formatDate,
+    isModerator,
+    buildMemberStats,
+    toHandle,
+    profileLink
+  } = window.PollyCommon;
   const api = window.PollyApi.createApi();
 
   initIdentityForm();
@@ -16,8 +26,16 @@
   const relatedThreads = document.getElementById("relatedThreads");
   const quoteReply = document.getElementById("quoteReply");
   const copyThreadLink = document.getElementById("copyThreadLink");
+  const reportThread = document.getElementById("reportThread");
+  const togglePin = document.getElementById("togglePin");
+  const toggleSticky = document.getElementById("toggleSticky");
+  const toggleHide = document.getElementById("toggleHide");
 
   let cachedPost = null;
+  const canModerate = isModerator();
+  if (canModerate) {
+    document.body.classList.add("is-moderator");
+  }
 
   if (!id) {
     threadTitle.textContent = "Thread not found";
@@ -27,7 +45,7 @@
   }
 
   async function load() {
-    const [post, allPosts, allComments] = await Promise.all([api.getPostById(id), api.getPosts(), api.getComments()]);
+    const [post, allPostsRaw, allComments] = await Promise.all([api.getPostById(id), api.getPosts(), api.getComments()]);
     if (!post) {
       threadTitle.textContent = "Thread not found";
       threadPost.innerHTML = '<p class="muted">This thread does not exist.</p>';
@@ -36,6 +54,16 @@
     }
 
     cachedPost = post;
+    const allPosts = canModerate ? allPostsRaw : allPostsRaw.filter((item) => !item.is_hidden);
+    if (post.is_hidden && !canModerate) {
+      threadTitle.textContent = "Thread is hidden";
+      threadPost.innerHTML = '<p class="muted">This thread is currently hidden by moderators.</p>';
+      commentsList.innerHTML = "";
+      replyForm.style.display = "none";
+      return;
+    }
+
+    const memberStats = buildMemberStats(allPostsRaw, allComments);
 
     const section = getSection(post.category);
     breadcrumb.textContent = `Forum Index > ${section.name} > ${post.title}`;
@@ -43,9 +71,22 @@
     threadTitle.textContent = post.title;
 
     const tags = Array.isArray(post.tags) ? post.tags : [];
+    const member = memberStats.get(toHandle(post.author_name));
+    const rank = member ? member.rank : "Newbie";
+    const rankClass = `badge-rank-${rank.toLowerCase()}`;
+    const modBadges = [
+      post.is_pinned ? '<span class="badge badge-pin">Pinned</span>' : "",
+      post.is_sticky ? '<span class="badge badge-sticky">Sticky</span>' : "",
+      post.is_hidden ? '<span class="badge badge-hidden">Hidden</span>' : ""
+    ].join(" ");
+
+    togglePin.textContent = post.is_pinned ? "Unpin" : "Pin";
+    toggleSticky.textContent = post.is_sticky ? "Unsticky" : "Sticky";
+    toggleHide.textContent = post.is_hidden ? "Unhide" : "Hide";
+
     threadPost.innerHTML = `
-      <h2>${escapeHtml(post.title)}</h2>
-      <p class="post-meta">Posted by ${escapeHtml(post.author_name)} - ${formatDate(post.created_at)}</p>
+      <h2>${escapeHtml(post.title)} ${modBadges}</h2>
+      <p class="post-meta">Posted by <a href="${profileLink(post.author_name)}">${escapeHtml(post.author_name)}</a> <span class="badge ${rankClass}">${rank}</span> - ${formatDate(post.created_at)}</p>
       <p>${escapeHtml(post.body)}</p>
       ${post.software_url ? `<p><a href="${escapeHtml(post.software_url)}" target="_blank" rel="noopener noreferrer">Open download / repo link</a></p>` : ""}
       <div class="tags">${tags.map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>
@@ -57,7 +98,7 @@
           .map(
             (comment) => `
               <article class="comment-item">
-                <strong>${escapeHtml(comment.author_name)}</strong> <small class="muted">${formatDate(comment.created_at)}</small>
+                <strong><a href="${profileLink(comment.author_name)}">${escapeHtml(comment.author_name)}</a></strong> <small class="muted">${formatDate(comment.created_at)}</small>
                 <p>${escapeHtml(comment.body)}</p>
               </article>
             `
@@ -131,5 +172,60 @@
     } catch {
       alert("Could not copy link. Please copy URL from address bar.");
     }
+  });
+
+  reportThread.addEventListener("click", async () => {
+    if (!cachedPost) return;
+    const nickname = getNickname();
+    if (!nickname) {
+      alert("Set your nickname first in the top bar.");
+      return;
+    }
+
+    const reason = prompt("Reason for report:", "Spam, abuse, malware, or unsafe link");
+    if (!reason) return;
+
+    try {
+      await api.createReport({ post_id: cachedPost.id, reason, reporter_name: nickname });
+      reportThread.textContent = "Reported";
+      setTimeout(() => {
+        reportThread.textContent = "Report Thread";
+      }, 1400);
+    } catch (error) {
+      alert(`Could not submit report: ${error.message || String(error)}`);
+    }
+  });
+
+  async function moderate(action) {
+    if (!canModerate || !cachedPost) return;
+    try {
+      if (action === "pin") {
+        await api.updatePost(cachedPost.id, { is_pinned: !cachedPost.is_pinned });
+      }
+      if (action === "sticky") {
+        await api.updatePost(cachedPost.id, { is_sticky: !cachedPost.is_sticky });
+      }
+      if (action === "hide") {
+        const nextHidden = !cachedPost.is_hidden;
+        let reason = cachedPost.hidden_reason || "";
+        if (nextHidden) {
+          reason = prompt("Reason for hiding this thread:", "Needs moderator review") || "Needs moderator review";
+        }
+        await api.updatePost(cachedPost.id, { is_hidden: nextHidden, hidden_reason: nextHidden ? reason : "" });
+      }
+      await load();
+    } catch (error) {
+      alert(`Moderation action failed: ${error.message || String(error)}`);
+    }
+  }
+
+  togglePin.addEventListener("click", () => {
+    void moderate("pin");
+  });
+  toggleSticky.addEventListener("click", () => {
+    void moderate("sticky");
+  });
+  toggleHide.addEventListener("click", () => {
+    void moderate("hide");
   });
 })();
