@@ -22,6 +22,10 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+alter table public.profiles add column if not exists bio text default '';
+alter table public.profiles add column if not exists updated_at timestamptz not null default now();
+create unique index if not exists idx_profiles_display_name_unique on public.profiles (display_name);
+
 create table if not exists public.posts (
   id uuid primary key default gen_random_uuid(),
   title text not null check (char_length(title) between 3 and 120),
@@ -41,6 +45,11 @@ create table if not exists public.posts (
   updated_at timestamptz not null default now()
 );
 
+alter table public.posts add column if not exists author_user_id uuid references auth.users(id) on delete set null;
+alter table public.posts add column if not exists is_locked boolean not null default false;
+alter table public.posts add column if not exists is_solved boolean not null default false;
+alter table public.posts add column if not exists updated_at timestamptz not null default now();
+
 create table if not exists public.comments (
   id uuid primary key default gen_random_uuid(),
   post_id uuid not null references public.posts(id) on delete cascade,
@@ -49,6 +58,8 @@ create table if not exists public.comments (
   body text not null check (char_length(body) between 1 and 500),
   created_at timestamptz not null default now()
 );
+
+alter table public.comments add column if not exists author_user_id uuid references auth.users(id) on delete set null;
 
 create table if not exists public.reports (
   id uuid primary key default gen_random_uuid(),
@@ -62,6 +73,8 @@ create table if not exists public.reports (
   created_at timestamptz not null default now()
 );
 
+alter table public.reports add column if not exists reporter_user_id uuid references auth.users(id) on delete set null;
+
 create table if not exists public.banned_users (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade,
@@ -72,6 +85,8 @@ create table if not exists public.banned_users (
   resolved_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table public.banned_users add column if not exists user_id uuid references auth.users(id) on delete cascade;
 
 create table if not exists public.moderation_logs (
   id uuid primary key default gen_random_uuid(),
