@@ -19,6 +19,17 @@
     loginPassword.value = "";
   }
 
+  function unlockReadOnlyOnFocus(input) {
+    input.addEventListener("focus", () => {
+      input.removeAttribute("readonly");
+    });
+    input.addEventListener("blur", () => {
+      if (!input.value) {
+        input.setAttribute("readonly", "readonly");
+      }
+    });
+  }
+
   if (!client) {
     statusEl.textContent = "Supabase is not configured yet.";
     return;
@@ -26,6 +37,17 @@
 
   clearAuthInputs();
   setTimeout(clearAuthInputs, 80);
+  setTimeout(clearAuthInputs, 400);
+  setTimeout(clearAuthInputs, 1200);
+
+  [registerEmail, registerPassword, loginEmail, loginPassword].forEach(unlockReadOnlyOnFocus);
+
+  window.addEventListener("focus", clearAuthInputs);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      clearAuthInputs();
+    }
+  });
 
   async function refreshStatus() {
     const user = await window.PollyCommon.getAuthUser();
