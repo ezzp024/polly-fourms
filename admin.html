@@ -12,7 +12,7 @@
 <body>
   <div class="top-strip">
     <div class="container top-strip-inner">
-      <p>Polly Fourms moderator tools</p>
+      <p>Polly Fourms admin control center</p>
       <form id="identityForm" class="identity-form" autocomplete="off">
         <label class="visually-hidden" for="nickname">Nickname</label>
         <input id="nickname" name="nickname" type="text" maxlength="24" placeholder="Your nickname" required />
@@ -43,13 +43,76 @@
   <main class="container layout-grid">
     <section class="panel">
       <div class="panel-head">
-        <h1>Moderation Console</h1>
-        <p id="adminStatus">Checking permissions...</p>
+        <h1>Administrator Panel</h1>
+        <p id="adminStatus">Secure admin sign-in required.</p>
       </div>
 
-      <div id="adminDenied" class="compose-box muted">This page is only available for moderator names listed in `config.js`.</div>
+      <div id="authPanel" class="compose-box">
+        <h2>Step 1 - Primary Admin Email</h2>
+        <p class="muted">Only <code id="adminEmailDisplay"></code> can unlock this panel.</p>
+        <form id="primarySendForm" class="row-fields" autocomplete="off">
+          <input id="primaryEmail" type="email" readonly />
+          <button type="submit">Send OTP Code</button>
+        </form>
+        <form id="primaryVerifyForm" class="row-fields" autocomplete="off">
+          <input id="primaryOtp" type="text" placeholder="Enter OTP from primary email" required />
+          <button type="submit">Verify Step 1</button>
+        </form>
+
+        <h2>Step 2 - Secondary Verification Email</h2>
+        <p class="muted">Second factor email: <code id="secondaryEmailDisplay"></code></p>
+        <form id="secondarySendForm" class="row-fields" autocomplete="off">
+          <input id="secondaryEmail" type="email" readonly />
+          <button type="submit">Send OTP Code</button>
+        </form>
+        <form id="secondaryVerifyForm" class="row-fields" autocomplete="off">
+          <input id="secondaryOtp" type="text" placeholder="Enter OTP from secondary email" required />
+          <button type="submit">Verify Step 2</button>
+        </form>
+
+        <div class="thread-actions">
+          <button type="button" id="refreshSession">Re-check Session</button>
+          <button type="button" id="logoutAdmin">Sign Out</button>
+        </div>
+      </div>
 
       <div id="adminContent" class="thread-box hidden-block">
+        <h2>Site Statistics</h2>
+        <div id="adminStats" class="profile-kpis"></div>
+
+        <h2>Download Data</h2>
+        <div class="thread-actions">
+          <button type="button" id="downloadData">Download JSON Export</button>
+        </div>
+
+        <h2>Registered Users (Forum Members)</h2>
+        <table class="forum-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Rank</th>
+              <th>Threads</th>
+              <th>Replies</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="userRows"></tbody>
+        </table>
+
+        <h2>Banned Users</h2>
+        <table class="forum-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Reason</th>
+              <th>Banned By</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="banRows"></tbody>
+        </table>
+
         <h2>Open Reports</h2>
         <table class="forum-table">
           <thead>
@@ -64,25 +127,13 @@
           <tbody id="reportRows"></tbody>
         </table>
 
-        <h2>Hidden Threads Queue</h2>
-        <table class="forum-table">
-          <thead>
-            <tr>
-              <th>Thread</th>
-              <th>Reason</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="hiddenRows"></tbody>
-        </table>
-
         <h2>Thread Controls</h2>
         <table class="forum-table">
           <thead>
             <tr>
               <th>Thread</th>
               <th>Flags</th>
-              <th>Moderation</th>
+              <th>Management</th>
             </tr>
           </thead>
           <tbody id="controlRows"></tbody>
@@ -92,11 +143,11 @@
 
     <aside class="sidebar">
       <section class="panel mini-panel">
-        <h2>How Access Works</h2>
+        <h2>Security Notes</h2>
         <ul>
-          <li>Set nickname to one listed in `moderatorNames` or `adminNames`.</li>
-          <li>Save nickname in top bar, then refresh this page.</li>
-          <li>For production security, add real auth + server rules later.</li>
+          <li>Admin page requires primary email + secondary email OTP verification.</li>
+          <li>For production, keep Supabase RLS rules strict (see SQL file).</li>
+          <li>No local browser-only auth can be considered fully secure.</li>
         </ul>
       </section>
     </aside>

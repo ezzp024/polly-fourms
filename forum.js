@@ -162,6 +162,11 @@
       return;
     }
 
+    if (await api.isNicknameBanned(nickname)) {
+      alert("Your account is currently banned from posting.");
+      return;
+    }
+
     const form = new FormData(newThreadForm);
     const title = String(form.get("title") || "").trim();
     const body = String(form.get("body") || "").trim();

@@ -16,6 +16,7 @@
       this.postKey = "polly_posts";
       this.commentKey = "polly_comments";
       this.reportKey = "polly_reports";
+      this.banKey = "polly_bans";
     }
 
     _load(key) {
@@ -49,6 +50,16 @@
       return this._load(this.reportKey).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
     }
 
+    async getBannedUsers() {
+      return this._load(this.banKey);
+    }
+
+    async isNicknameBanned(name) {
+      const bans = await this.getBannedUsers();
+      const normalized = String(name || "").trim().toLowerCase();
+      return bans.some((b) => String(b.nickname || "").trim().toLowerCase() === normalized && b.active !== false);
+    }
+
     async createPost(post) {
       const posts = this._load(this.postKey);
       posts.push(
@@ -69,10 +80,39 @@
       this._save(this.postKey, posts);
     }
 
+    async deletePost(postId) {
+      const posts = this._load(this.postKey).filter((p) => p.id !== postId);
+      this._save(this.postKey, posts);
+      const comments = this._load(this.commentKey).filter((c) => c.post_id !== postId);
+      this._save(this.commentKey, comments);
+    }
+
+    async clearPostLink(postId) {
+      await this.updatePost(postId, { software_url: null });
+    }
+
+    async deletePostsByAuthor(name) {
+      const posts = this._load(this.postKey);
+      const authorIds = posts.filter((p) => p.author_name === name).map((p) => p.id);
+      this._save(
+        this.postKey,
+        posts.filter((p) => p.author_name !== name)
+      );
+      const comments = this._load(this.commentKey).filter((c) => !authorIds.includes(c.post_id));
+      this._save(this.commentKey, comments);
+    }
+
     async createComment(comment) {
       const comments = this._load(this.commentKey);
       comments.push({ id: crypto.randomUUID(), ...comment, created_at: new Date().toISOString() });
       this._save(this.commentKey, comments);
+    }
+
+    async deleteCommentsByAuthor(name) {
+      this._save(
+        this.commentKey,
+        this._load(this.commentKey).filter((c) => c.author_name !== name)
+      );
     }
 
     async createReport(report) {
@@ -102,59 +142,57 @@
       };
       this._save(this.reportKey, reports);
     }
+
+    async banUser(nickname, reason, bannedBy) {
+      const bans = this._load(this.banKey);
+      bans.push({
+        id: crypto.randomUUID(),
+        nickname,
+        reason: reason || "Policy violation",
+        banned_by: bannedBy || "admin",
+        active: true,
+        created_at: new Date().toISOString()
+      });
+      this._save(this.banKey, bans);
+    }
+
+    async unbanUser(banId) {
+      const bans = this._load(this.banKey);
+      const idx = bans.findIndex((b) => b.id === banId);
+      if (idx >= 0) {
+        bans[idx] = { ...bans[idx], active: false, resolved_at: new Date().toISOString() };
+        this._save(this.banKey, bans);
+      }
+    }
+
+    async getCurrentUser() {
+      return null;
+    }
   }
 
   class SupabaseBackend {
-    constructor(url, key) {
-      this.client = window.supabase.createClient(url, key);
-      this.hasModerationColumns = true;
-      this.hasReportsTable = true;
+    constructor(url, key, options) {
+      const storageKey = options && options.authStorageKey;
+      const clientOptions = storageKey ? { auth: { storageKey } } : undefined;
+      this.client = window.supabase.createClient(url, key, clientOptions);
     }
 
     async getPosts() {
-      const primarySelect = "id, title, body, category, software_url, tags, author_name, created_at, is_pinned, is_sticky, is_hidden, hidden_reason";
-      const fallbackSelect = "id, title, body, category, software_url, tags, author_name, created_at";
-
-      let data;
-      if (this.hasModerationColumns) {
-        const { data: fullData, error } = await this.client
-          .from("posts")
-          .select(primarySelect)
-          .order("created_at", { ascending: false })
-          .limit(500);
-        if (!error) {
-          data = fullData || [];
-        } else {
-          this.hasModerationColumns = false;
-        }
-      }
-
-      if (!data) {
-        const { data: legacyData, error } = await this.client
-          .from("posts")
-          .select(fallbackSelect)
-          .order("created_at", { ascending: false })
-          .limit(500);
-        if (error) throw error;
-        data = legacyData || [];
-      }
-
-      return data.map(withPostDefaults);
+      const { data, error } = await this.client
+        .from("posts")
+        .select("id, title, body, category, software_url, tags, author_name, created_at, is_pinned, is_sticky, is_hidden, hidden_reason")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return (data || []).map(withPostDefaults);
     }
 
     async getPostById(id) {
-      const fullSelect = "id, title, body, category, software_url, tags, author_name, created_at, is_pinned, is_sticky, is_hidden, hidden_reason";
-      const legacySelect = "id, title, body, category, software_url, tags, author_name, created_at";
-
-      if (this.hasModerationColumns) {
-        const { data, error } = await this.client.from("posts").select(fullSelect).eq("id", id).single();
-        if (!error && data) return withPostDefaults(data);
-        if (error && error.code !== "PGRST116") {
-          this.hasModerationColumns = false;
-        }
-      }
-
-      const { data, error } = await this.client.from("posts").select(legacySelect).eq("id", id).single();
+      const { data, error } = await this.client
+        .from("posts")
+        .select("id, title, body, category, software_url, tags, author_name, created_at, is_pinned, is_sticky, is_hidden, hidden_reason")
+        .eq("id", id)
+        .single();
       if (error) return null;
       return withPostDefaults(data);
     }
@@ -170,17 +208,35 @@
     }
 
     async getReports() {
-      if (!this.hasReportsTable) return [];
       const { data, error } = await this.client
         .from("reports")
         .select("id, post_id, reason, reporter_name, status, created_at, resolved_at, resolved_by")
         .order("created_at", { ascending: false })
-        .limit(1000);
-      if (error) {
-        this.hasReportsTable = false;
-        return [];
-      }
+        .limit(2000);
+      if (error) throw error;
       return data || [];
+    }
+
+    async getBannedUsers() {
+      const { data, error } = await this.client
+        .from("banned_users")
+        .select("id, nickname, reason, banned_by, active, created_at, resolved_at")
+        .order("created_at", { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      return data || [];
+    }
+
+    async isNicknameBanned(name) {
+      const normalized = String(name || "").trim().toLowerCase();
+      const { data, error } = await this.client
+        .from("banned_users")
+        .select("id")
+        .eq("nickname", normalized)
+        .eq("active", true)
+        .limit(1);
+      if (error) throw error;
+      return (data || []).length > 0;
     }
 
     async createPost(post) {
@@ -196,27 +252,31 @@
         is_hidden: false,
         hidden_reason: null
       });
-
-      if (!error) return;
-      const { error: legacyError } = await this.client.from("posts").insert({
-        title: post.title,
-        body: post.body,
-        category: post.category,
-        software_url: post.software_url || null,
-        tags: Array.isArray(post.tags) ? post.tags : [],
-        author_name: post.author_name
-      });
-      if (legacyError) throw legacyError;
+      if (error) throw error;
     }
 
     async updatePost(postId, patch) {
-      const payload = {
-        is_pinned: Boolean(patch.is_pinned),
-        is_sticky: Boolean(patch.is_sticky),
-        is_hidden: Boolean(patch.is_hidden),
-        hidden_reason: patch.hidden_reason || null
-      };
+      const payload = {};
+      if (Object.prototype.hasOwnProperty.call(patch, "is_pinned")) payload.is_pinned = Boolean(patch.is_pinned);
+      if (Object.prototype.hasOwnProperty.call(patch, "is_sticky")) payload.is_sticky = Boolean(patch.is_sticky);
+      if (Object.prototype.hasOwnProperty.call(patch, "is_hidden")) payload.is_hidden = Boolean(patch.is_hidden);
+      if (Object.prototype.hasOwnProperty.call(patch, "hidden_reason")) payload.hidden_reason = patch.hidden_reason || null;
+      if (Object.prototype.hasOwnProperty.call(patch, "software_url")) payload.software_url = patch.software_url || null;
       const { error } = await this.client.from("posts").update(payload).eq("id", postId);
+      if (error) throw error;
+    }
+
+    async deletePost(postId) {
+      const { error } = await this.client.from("posts").delete().eq("id", postId);
+      if (error) throw error;
+    }
+
+    async clearPostLink(postId) {
+      await this.updatePost(postId, { software_url: null });
+    }
+
+    async deletePostsByAuthor(name) {
+      const { error } = await this.client.from("posts").delete().eq("author_name", name);
       if (error) throw error;
     }
 
@@ -229,37 +289,63 @@
       if (error) throw error;
     }
 
+    async deleteCommentsByAuthor(name) {
+      const { error } = await this.client.from("comments").delete().eq("author_name", name);
+      if (error) throw error;
+    }
+
     async createReport(report) {
-      if (!this.hasReportsTable) return;
       const { error } = await this.client.from("reports").insert({
         post_id: report.post_id,
         reason: report.reason,
         reporter_name: report.reporter_name,
         status: "open"
       });
-      if (error) {
-        this.hasReportsTable = false;
-      }
+      if (error) throw error;
     }
 
     async resolveReport(reportId, resolverName) {
-      if (!this.hasReportsTable) return;
       const { error } = await this.client
         .from("reports")
         .update({ status: "resolved", resolved_by: resolverName, resolved_at: new Date().toISOString() })
         .eq("id", reportId);
       if (error) throw error;
     }
+
+    async banUser(nickname, reason, bannedBy) {
+      const normalized = String(nickname || "").trim().toLowerCase();
+      const { error } = await this.client.from("banned_users").insert({
+        nickname: normalized,
+        reason: reason || "Policy violation",
+        banned_by: bannedBy || "admin",
+        active: true
+      });
+      if (error) throw error;
+    }
+
+    async unbanUser(banId) {
+      const { error } = await this.client
+        .from("banned_users")
+        .update({ active: false, resolved_at: new Date().toISOString() })
+        .eq("id", banId);
+      if (error) throw error;
+    }
+
+    async getCurrentUser() {
+      const { data, error } = await this.client.auth.getUser();
+      if (error) return null;
+      return data.user || null;
+    }
   }
 
-  function createApi() {
+  function createApi(options) {
     const hasSupabase =
       typeof CONFIG.supabaseUrl === "string" &&
       CONFIG.supabaseUrl.length > 0 &&
       typeof CONFIG.supabaseAnonKey === "string" &&
       CONFIG.supabaseAnonKey.length > 0 &&
       window.supabase;
-    return hasSupabase ? new SupabaseBackend(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey) : new LocalBackend();
+    return hasSupabase ? new SupabaseBackend(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, options) : new LocalBackend();
   }
 
   window.PollyApi = { createApi };

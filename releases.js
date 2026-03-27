@@ -126,6 +126,11 @@
       return;
     }
 
+    if (await api.isNicknameBanned(nickname)) {
+      alert("Your account is currently banned from reporting.");
+      return;
+    }
+
     const reason = prompt("Reason for report:", "Spam, abuse, malware, or unsafe link");
     if (!reason) return;
 

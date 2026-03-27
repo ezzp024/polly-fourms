@@ -141,6 +141,11 @@
       return;
     }
 
+    if (await api.isNicknameBanned(nickname)) {
+      alert("Your account is currently banned from replying.");
+      return;
+    }
+
     const form = new FormData(replyForm);
     const body = String(form.get("body") || "").trim();
     if (!body) return;
@@ -179,6 +184,11 @@
     const nickname = getNickname();
     if (!nickname) {
       alert("Set your nickname first in the top bar.");
+      return;
+    }
+
+    if (await api.isNicknameBanned(nickname)) {
+      alert("Your account is currently banned from reporting.");
       return;
     }
 

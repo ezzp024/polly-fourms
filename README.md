@@ -15,6 +15,7 @@ Current UI/features include:
 - member profiles with ranks and activity history
 - sticky/pinned threads plus hidden thread queue
 - reporting workflow and moderator/admin console
+- secured admin panel with email OTP step 1 + step 2 secondary email verification
 
 The site works in two modes:
 
@@ -54,14 +55,19 @@ Exact clicks:
 1. Open Supabase dashboard -> **New project**.
 2. Choose organization -> set project name `polly-fourms` -> set a database password -> choose region -> **Create new project**.
 3. Left menu -> **SQL Editor** -> **New query**.
-4. Paste SQL from `supabase-setup.sql` (or the block below) -> click **Run**.
+4. Paste SQL from `supabase-setup.sql` -> click **Run**.
 5. Left menu -> **Project Settings** -> **API**.
 6. Copy these two values:
    - `Project URL`
    - `anon public` key
 7. Open `config.js` and paste them.
 
-Use SQL from `supabase-setup.sql` (includes posts, comments, reports, and moderation columns).
+Use SQL from `supabase-setup.sql` (includes posts, comments, reports, bans, admin policies).
+
+Important for this project:
+
+- If you created Supabase earlier, you should run the latest `supabase-setup.sql` again.
+- The script is safe to re-run (`if not exists` + policy replacement).
 
 Then open `config.js` and paste your values:
 
@@ -69,12 +75,27 @@ Then open `config.js` and paste your values:
 window.POLLY_CONFIG = {
   supabaseUrl: "https://YOUR-PROJECT.supabase.co",
   supabaseAnonKey: "YOUR_PUBLIC_ANON_KEY",
+  adminEmail: "ezzp024@gmail.com",
+  secondaryAdminEmail: "yuripoli1973@gmail.com",
   moderatorNames: ["admin"],
   adminNames: ["admin"]
 };
 ```
 
 To use moderator/admin features, set your nickname to one of the names in `moderatorNames` or `adminNames`.
+
+For secure admin panel access:
+
+1. Open `admin.html`.
+2. Step 1 sends OTP to `adminEmail`.
+3. Step 2 sends OTP to `secondaryAdminEmail`.
+4. Complete both verifications to unlock full admin controls.
+
+You also need both emails available in Supabase Auth users. The easiest method:
+
+- Go to **Authentication -> Users -> Add user**
+- Create user `ezzp024@gmail.com`
+- Create user `yuripoli1973@gmail.com`
 
 After editing `config.js`, commit and push:
 

@@ -162,6 +162,12 @@
   }
 
   function isModerator() {
+    const supabaseEnabled =
+      typeof CONFIG.supabaseUrl === "string" &&
+      CONFIG.supabaseUrl.length > 0 &&
+      typeof CONFIG.supabaseAnonKey === "string" &&
+      CONFIG.supabaseAnonKey.length > 0;
+    if (supabaseEnabled) return false;
     const role = getCurrentRole();
     return role === "admin" || role === "moderator";
   }
