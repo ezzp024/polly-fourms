@@ -1,5 +1,6 @@
 (function () {
   const CONFIG = window.POLLY_CONFIG || {};
+  const ADMIN_FACTOR_KEY = "polly_admin_factor2";
 
   const SECTION_META = {
     software: {
@@ -172,6 +173,43 @@
     return role === "admin" || role === "moderator";
   }
 
+  function isSecondFactorValid() {
+    const raw = sessionStorage.getItem(ADMIN_FACTOR_KEY);
+    if (!raw) return false;
+    const ageMs = Date.now() - Number(raw);
+    return Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 1000 * 60 * 30;
+  }
+
+  async function hasAdminSession() {
+    const adminEmail = String(CONFIG.adminEmail || "").toLowerCase();
+    const hasSupabase =
+      typeof CONFIG.supabaseUrl === "string" &&
+      CONFIG.supabaseUrl.length > 0 &&
+      typeof CONFIG.supabaseAnonKey === "string" &&
+      CONFIG.supabaseAnonKey.length > 0 &&
+      window.supabase;
+
+    if (!adminEmail || !hasSupabase || !isSecondFactorValid()) return false;
+
+    try {
+      const client = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
+        auth: { storageKey: "polly_admin_primary" }
+      });
+      const { data, error } = await client.auth.getUser();
+      if (error || !data || !data.user) return false;
+      const email = String(data.user.email || "").toLowerCase();
+      return email === adminEmail;
+    } catch {
+      return false;
+    }
+  }
+
+  async function applyAdminVisibility() {
+    const isAdmin = await hasAdminSession();
+    document.body.classList.toggle("is-admin", isAdmin);
+    return isAdmin;
+  }
+
   function renderPager(target, currentPage, totalPages, onSelect) {
     target.textContent = "";
     if (totalPages <= 1) {
@@ -231,6 +269,8 @@
     getRoleByNickname,
     getCurrentRole,
     isModerator,
+    hasAdminSession,
+    applyAdminVisibility,
     getNickname,
     setNickname,
     initIdentityForm,
@@ -239,4 +279,6 @@
     renderPager,
     updateTopMetrics
   };
+
+  void applyAdminVisibility();
 })();

@@ -392,6 +392,14 @@ button:hover {
   display: none;
 }
 
+.admin-only {
+  display: none;
+}
+
+body.is-admin .admin-only {
+  display: inline-block;
+}
+
 body.is-moderator .moderator-only {
   display: inline-block;
 }
