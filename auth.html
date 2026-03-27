@@ -30,15 +30,15 @@
       <div class="compose-box">
         <h2>Register</h2>
         <form id="registerForm" class="row-fields" autocomplete="off">
-          <input id="registerEmail" type="email" placeholder="Email" required />
-          <input id="registerPassword" type="password" placeholder="Password" required />
+          <input id="registerEmail" name="register_email_pf" type="email" placeholder="Email" autocomplete="off" required />
+          <input id="registerPassword" name="register_password_pf" type="password" placeholder="Password" autocomplete="new-password" required />
           <button type="submit">Create Account</button>
         </form>
 
         <h2>Login</h2>
         <form id="loginForm" class="row-fields" autocomplete="off">
-          <input id="loginEmail" type="email" placeholder="Email" required />
-          <input id="loginPassword" type="password" placeholder="Password" required />
+          <input id="loginEmail" name="login_email_pf" type="email" placeholder="Email" autocomplete="off" required />
+          <input id="loginPassword" name="login_password_pf" type="password" placeholder="Password" autocomplete="off" required />
           <button type="submit">Login</button>
         </form>
 

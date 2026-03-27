@@ -12,10 +12,20 @@
   const params = new URLSearchParams(window.location.search);
   const next = params.get("next") || "index.html";
 
+  function clearAuthInputs() {
+    registerEmail.value = "";
+    registerPassword.value = "";
+    loginEmail.value = "";
+    loginPassword.value = "";
+  }
+
   if (!client) {
     statusEl.textContent = "Supabase is not configured yet.";
     return;
   }
+
+  clearAuthInputs();
+  setTimeout(clearAuthInputs, 80);
 
   async function refreshStatus() {
     const user = await window.PollyCommon.getAuthUser();
