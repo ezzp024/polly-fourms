@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Polly Fourms - Forum Section</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700;800&family=Literata:opsz,wght@7..72,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="top-strip">
+    <div class="container top-strip-inner">
+      <p>Polly Fourms section view</p>
+      <form id="identityForm" class="identity-form" autocomplete="off">
+        <label class="visually-hidden" for="nickname">Nickname</label>
+        <input id="nickname" name="nickname" type="text" maxlength="24" placeholder="Your nickname" required />
+        <button type="submit">Save</button>
+      </form>
+    </div>
+  </div>
+
+  <header class="site-head container">
+    <a class="logo-block" href="index.html">
+      <span class="logo-badge">PF</span>
+      <span>
+        <strong>Polly Fourms</strong>
+        <small>Open Source Board Network</small>
+      </span>
+    </a>
+    <div class="live-stats">
+      <article><span id="metricThreads">0</span><small>Threads</small></article>
+      <article><span id="metricReplies">0</span><small>Replies</small></article>
+      <article><span id="metricReleases">0</span><small>Releases</small></article>
+    </div>
+  </header>
+
+  <nav class="main-nav">
+    <div class="container nav-inner">
+      <a href="index.html">Forum Index</a>
+      <a class="is-active" href="#">Section</a>
+      <a href="releases.html">Downloads</a>
+    </div>
+  </nav>
+
+  <div class="sub-breadcrumb">
+    <div class="container" id="breadcrumb">Forum Index > Section</div>
+  </div>
+
+  <main class="container layout-grid">
+    <section class="panel">
+      <div class="panel-head">
+        <h1 id="sectionTitle">Forum Section</h1>
+        <p id="sectionDescription"></p>
+      </div>
+
+      <div class="compose-box">
+        <h2>Post New Thread</h2>
+        <form id="newThreadForm" autocomplete="off">
+          <label>Thread Title<input name="title" type="text" maxlength="120" required /></label>
+          <label>Message<textarea name="body" rows="6" maxlength="4000" required></textarea></label>
+          <div class="row-fields">
+            <label>Download / Repo URL (optional)<input name="softwareUrl" type="url" placeholder="https://" /></label>
+            <label>Tags (comma separated)<input name="tags" type="text" maxlength="120" placeholder="python, windows, utility" /></label>
+          </div>
+          <button type="submit">Create Thread</button>
+        </form>
+      </div>
+
+      <div class="thread-box">
+        <div class="row-fields">
+          <input id="threadSearch" type="search" placeholder="Search this section..." />
+          <select id="sortBy">
+            <option value="latest">Latest</option>
+            <option value="oldest">Oldest</option>
+            <option value="replies">Most Replies</option>
+          </select>
+        </div>
+
+        <table class="forum-table" aria-label="Threads">
+          <thead>
+            <tr>
+              <th>Thread</th>
+              <th>Author</th>
+              <th>Replies</th>
+              <th>Last Activity</th>
+            </tr>
+          </thead>
+          <tbody id="threadRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <section class="panel mini-panel">
+        <h2>Forum Tips</h2>
+        <ul>
+          <li>Use clear version names: v1.0.0, v1.1.0.</li>
+          <li>For tools, include system requirements and screenshots.</li>
+          <li>Reply to feedback and keep your thread updated.</li>
+        </ul>
+      </section>
+    </aside>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="forum-api.js"></script>
+  <script src="common.js"></script>
+  <script src="forum.js"></script>
+</body>
+</html>

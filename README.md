@@ -11,11 +11,19 @@ The site works in two modes:
 1. **Demo mode** (no setup): stores posts/comments in `localStorage`.
 2. **Live mode** (recommended): uses free **Supabase** for real public multi-user data.
 
-## Files
+## Pages
 
-- `index.html` - page structure
-- `styles.css` - forum styling
-- `app.js` - post + comment logic
+- `index.html` - forum index (board overview)
+- `forum.html` - section page with thread list + new thread form
+- `thread.html` - single thread view + replies
+- `releases.html` - software release browser
+
+## Core Files
+
+- `styles.css` - forum styling (classic board look)
+- `forum-api.js` - Supabase/localStorage data layer
+- `common.js` - shared helpers + nickname handling
+- `home.js`, `forum.js`, `thread.js`, `releases.js` - page logic
 - `config.js` - backend config
 
 ## 1) Quick start locally

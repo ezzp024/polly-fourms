@@ -3,129 +3,101 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Polly Forums</title>
-  <meta name="description" content="Polly Forums - share software, discuss coding, and help each other build." />
+  <title>Polly Fourms - Community Index</title>
+  <meta name="description" content="Polly Fourms community index - software releases, coding help, and project discussions." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;500;700;900&family=Fraunces:opsz,wght@9..144,700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700;800&family=Literata:opsz,wght@7..72,700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="backdrop" aria-hidden="true"></div>
-  <header class="site-header container">
-    <a href="#" class="brand">
-      <span class="brand-mark">PF</span>
-      <span>
-        <strong>Polly Forums</strong>
-        <small>Open Software Community</small>
-      </span>
-    </a>
-
-    <form id="identityForm" class="identity-form" autocomplete="off">
-      <label class="sr-only" for="nickname">Nickname</label>
-      <input id="nickname" name="nickname" type="text" maxlength="24" placeholder="Set your nickname" required />
-      <button type="submit">Save</button>
-    </form>
-  </header>
-
-  <main class="container main-grid">
-    <section class="hero panel">
-      <p class="eyebrow">Public Release Hub</p>
-      <h1>Share your software. Get feedback. Build faster together.</h1>
-      <p>
-        Post your tools, launch updates, discuss code, and discover projects made by indie developers.
-      </p>
-      <div class="hero-metrics">
-        <article>
-          <span id="metricPosts">0</span>
-          <small>Posts</small>
-        </article>
-        <article>
-          <span id="metricSoftware">0</span>
-          <small>Software Releases</small>
-        </article>
-        <article>
-          <span id="metricComments">0</span>
-          <small>Comments</small>
-        </article>
-      </div>
-    </section>
-
-    <aside class="composer panel">
-      <h2>Create post</h2>
-      <form id="postForm" autocomplete="off">
-        <label>
-          Title
-          <input id="title" name="title" type="text" maxlength="120" required />
-        </label>
-        <label>
-          Category
-          <select id="category" name="category">
-            <option value="software">Software Release</option>
-            <option value="discussion">Discussion</option>
-            <option value="help">Help / Support</option>
-            <option value="showcase">Showcase</option>
-          </select>
-        </label>
-        <label>
-          Description
-          <textarea id="content" name="content" rows="5" maxlength="4000" required></textarea>
-        </label>
-        <label>
-          Download / Repo URL (optional)
-          <input id="softwareUrl" name="softwareUrl" type="url" placeholder="https://" />
-        </label>
-        <label>
-          Tags (comma separated)
-          <input id="tags" name="tags" type="text" maxlength="120" placeholder="python, ui, tool" />
-        </label>
-        <button type="submit" class="primary">Publish post</button>
-      </form>
-    </aside>
-
-    <section class="feed panel">
-      <div class="feed-toolbar">
-        <h2>Community Feed</h2>
-        <div class="toolbar-actions">
-          <input id="search" type="search" placeholder="Search posts..." />
-          <select id="categoryFilter">
-            <option value="all">All categories</option>
-            <option value="software">Software Release</option>
-            <option value="discussion">Discussion</option>
-            <option value="help">Help / Support</option>
-            <option value="showcase">Showcase</option>
-          </select>
-        </div>
-      </div>
-      <div id="feedList" class="feed-list"></div>
-      <p id="emptyState" class="empty-state hidden">No posts match your filters yet.</p>
-    </section>
-  </main>
-
-  <template id="postTemplate">
-    <article class="post-card">
-      <div class="post-head">
-        <span class="post-category"></span>
-        <time class="post-time"></time>
-      </div>
-      <h3 class="post-title"></h3>
-      <p class="post-body"></p>
-      <a class="software-link hidden" target="_blank" rel="noopener noreferrer">Open Software Link</a>
-      <div class="post-tags"></div>
-      <div class="post-meta"></div>
-      <details>
-        <summary>Comments <span class="comment-count">0</span></summary>
-        <div class="comments-list"></div>
-        <form class="comment-form" autocomplete="off">
-          <input name="comment" type="text" maxlength="500" placeholder="Write a comment" required />
-          <button type="submit">Reply</button>
+  <div class="page-shell">
+    <div class="top-strip">
+      <div class="container top-strip-inner">
+        <p>Welcome to Polly Fourms - release your tools, meet coders, grow together.</p>
+        <form id="identityForm" class="identity-form" autocomplete="off">
+          <label class="visually-hidden" for="nickname">Nickname</label>
+          <input id="nickname" name="nickname" type="text" maxlength="24" placeholder="Your nickname" required />
+          <button type="submit">Save</button>
         </form>
-      </details>
-    </article>
-  </template>
+      </div>
+    </div>
+
+    <header class="site-head container">
+      <a class="logo-block" href="index.html">
+        <span class="logo-badge">PF</span>
+        <span>
+          <strong>Polly Fourms</strong>
+          <small>Open Source Board Network</small>
+        </span>
+      </a>
+      <div class="live-stats">
+        <article><span id="metricThreads">0</span><small>Threads</small></article>
+        <article><span id="metricReplies">0</span><small>Replies</small></article>
+        <article><span id="metricReleases">0</span><small>Releases</small></article>
+      </div>
+    </header>
+
+    <nav class="main-nav">
+      <div class="container nav-inner">
+        <a class="is-active" href="index.html">Forum Index</a>
+        <a href="forum.html?section=software">Software Releases</a>
+        <a href="forum.html?section=help">Coding Help</a>
+        <a href="forum.html?section=showcase">Project Showcase</a>
+        <a href="releases.html">Downloads</a>
+      </div>
+    </nav>
+
+    <main class="container layout-grid">
+      <section class="panel board-panel">
+        <div class="panel-head">
+          <h1>Forum Overview</h1>
+          <p>Classic board layout with sections, thread counts, and latest activity.</p>
+        </div>
+
+        <table class="forum-table" aria-label="Forum sections">
+          <thead>
+            <tr>
+              <th>Forum</th>
+              <th>Threads</th>
+              <th>Replies</th>
+              <th>Latest Post</th>
+            </tr>
+          </thead>
+          <tbody id="boardRows"></tbody>
+        </table>
+      </section>
+
+      <aside class="sidebar">
+        <section class="panel mini-panel">
+          <h2>Quick Links</h2>
+          <a href="forum.html?section=software">Post New Software</a>
+          <a href="forum.html?section=help">Ask for Coding Help</a>
+          <a href="forum.html?section=general">General Tech Chat</a>
+          <a href="releases.html">Browse Downloads</a>
+        </section>
+
+        <section class="panel mini-panel">
+          <h2>Latest Releases</h2>
+          <div id="latestReleases" class="stack-list"></div>
+        </section>
+
+        <section class="panel mini-panel">
+          <h2>Community Rules</h2>
+          <ul>
+            <li>Respect all members and keep discussions constructive.</li>
+            <li>Do not upload malware, cracked software, or unsafe links.</li>
+            <li>Use clear titles and include tags for easier discovery.</li>
+          </ul>
+        </section>
+      </aside>
+    </main>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app.js"></script>
+  <script src="forum-api.js"></script>
+  <script src="common.js"></script>
+  <script src="home.js"></script>
 </body>
 </html>
