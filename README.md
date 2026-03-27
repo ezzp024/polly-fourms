@@ -26,7 +26,21 @@ If `config.js` is empty, it runs in demo mode.
 
 ## 2) Enable real users with free Supabase
 
-Create a project at [https://supabase.com](https://supabase.com), then run this SQL in **SQL Editor**:
+Create a project at [https://supabase.com](https://supabase.com).
+
+Exact clicks:
+
+1. Open Supabase dashboard -> **New project**.
+2. Choose organization -> set project name `polly-fourms` -> set a database password -> choose region -> **Create new project**.
+3. Left menu -> **SQL Editor** -> **New query**.
+4. Paste SQL from `supabase-setup.sql` (or the block below) -> click **Run**.
+5. Left menu -> **Project Settings** -> **API**.
+6. Copy these two values:
+   - `Project URL`
+   - `anon public` key
+7. Open `config.js` and paste them.
+
+Use this SQL:
 
 ```sql
 create extension if not exists pgcrypto;
@@ -87,6 +101,18 @@ window.POLLY_CONFIG = {
   supabaseAnonKey: "YOUR_PUBLIC_ANON_KEY"
 };
 ```
+
+After editing `config.js`, commit and push:
+
+```bash
+git add config.js supabase-setup.sql README.md
+git commit -m "Configure Supabase for Polly Forums"
+git push
+```
+
+Wait 1-2 minutes for GitHub Pages redeploy, then open:
+
+`https://ezzp024.github.io/polly-fourms/`
 
 ## 3) Publish with free GitHub domain
 
