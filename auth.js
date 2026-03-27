@@ -1,11 +1,13 @@
 (async function () {
   const statusEl = document.getElementById("authStatus");
   const registerForm = document.getElementById("registerForm");
+  const resendForm = document.getElementById("resendForm");
   const loginForm = document.getElementById("loginForm");
   const registerEmail = document.getElementById("registerEmail");
   const registerPassword = document.getElementById("registerPassword");
   const loginEmail = document.getElementById("loginEmail");
   const loginPassword = document.getElementById("loginPassword");
+  const resendEmail = document.getElementById("resendEmail");
 
   const client = window.PollyCommon.createAuthClient();
 
@@ -17,6 +19,11 @@
     url.search = "";
     url.hash = "";
     return url.toString();
+  }
+
+  function getHashParams() {
+    const raw = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+    return new URLSearchParams(raw);
   }
 
   function clearAuthInputs() {
@@ -71,13 +78,37 @@
       : `Logged in as ${email}.`;
   }
 
+  async function handleVerificationLanding() {
+    const hash = getHashParams();
+    const type = hash.get("type");
+    const errorDescription = hash.get("error_description");
+
+    if (errorDescription) {
+      statusEl.textContent = `Verification failed: ${decodeURIComponent(errorDescription)}`;
+      window.history.replaceState({}, "", window.location.pathname + window.location.search);
+      return;
+    }
+
+    if (!type) return;
+
+    await refreshStatus();
+
+    if (type === "signup") {
+      statusEl.textContent = "Email verified successfully. You can now log in.";
+    } else if (type === "recovery") {
+      statusEl.textContent = "Recovery link accepted. Continue with account access.";
+    }
+
+    window.history.replaceState({}, "", window.location.pathname + window.location.search);
+  }
+
   registerForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const email = String(registerEmail.value || "").trim();
     const password = String(registerPassword.value || "");
 
     try {
-      const { error } = await client.auth.signUp({
+      const { data, error } = await client.auth.signUp({
         email,
         password,
         options: {
@@ -85,10 +116,37 @@
         }
       });
       if (error) throw error;
-      statusEl.textContent = "Registration submitted. Check your email if confirmation is required.";
-      await refreshStatus();
+
+      if (data && data.session) {
+        statusEl.textContent = "Account created and logged in.";
+        await refreshStatus();
+        return;
+      }
+
+      statusEl.textContent = "Registration submitted. Check your email and click the verification link.";
+      resendEmail.value = email;
     } catch (error) {
       statusEl.textContent = `Register failed: ${error.message || String(error)}`;
+    }
+  });
+
+  resendForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const email = String(resendEmail.value || "").trim();
+    if (!email) return;
+
+    try {
+      const { error } = await client.auth.resend({
+        type: "signup",
+        email,
+        options: {
+          emailRedirectTo: getEmailRedirectUrl()
+        }
+      });
+      if (error) throw error;
+      statusEl.textContent = "Verification email resent. Please check inbox/spam.";
+    } catch (error) {
+      statusEl.textContent = `Resend failed: ${error.message || String(error)}`;
     }
   });
 
@@ -133,4 +191,11 @@
   });
 
   await refreshStatus();
+  await handleVerificationLanding();
+
+  client.auth.onAuthStateChange((eventName) => {
+    if (eventName === "SIGNED_IN") {
+      void refreshStatus();
+    }
+  });
 })();
