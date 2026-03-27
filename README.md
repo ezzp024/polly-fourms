@@ -15,7 +15,7 @@ Current UI/features include:
 - member profiles with ranks and activity history
 - sticky/pinned threads plus hidden thread queue
 - reporting workflow and moderator/admin console
-- secured admin panel with email OTP step 1 + step 2 secondary email verification
+- secured admin panel routing
 
 The site works in two modes:
 
@@ -75,27 +75,12 @@ Then open `config.js` and paste your values:
 window.POLLY_CONFIG = {
   supabaseUrl: "https://YOUR-PROJECT.supabase.co",
   supabaseAnonKey: "YOUR_PUBLIC_ANON_KEY",
-  adminEmailHash: "<sha256-of-primary-email>",
-  secondaryAdminEmailHash: "<sha256-of-secondary-email>",
+  adminEmailHash: "",
+  secondaryAdminEmailHash: "",
   moderatorNames: ["admin"],
   adminNames: ["admin"]
 };
 ```
-
-To use moderator/admin features, set your nickname to one of the names in `moderatorNames` or `adminNames`.
-
-For secure admin panel access:
-
-1. Open `admin.html`.
-2. Step 1 sends OTP to `adminEmail`.
-3. Step 2 sends OTP to `secondaryAdminEmail`.
-4. Complete both verifications to unlock full admin controls.
-
-You also need both emails available in Supabase Auth users. The easiest method:
-
-- Go to **Authentication -> Users -> Add user**
-- Create user `ezzp024@gmail.com`
-- Create user `yuripoli1973@gmail.com`
 
 After editing `config.js`, commit and push:
 

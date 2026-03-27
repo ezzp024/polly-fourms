@@ -173,15 +173,6 @@
     return role === "admin" || role === "moderator";
   }
 
-  async function sha256(input) {
-    if (!window.crypto || !window.crypto.subtle) return "";
-    const bytes = new TextEncoder().encode(String(input || "").trim().toLowerCase());
-    const hashBuffer = await window.crypto.subtle.digest("SHA-256", bytes);
-    return Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-  }
-
   function createAuthClient() {
     const hasSupabase =
       typeof CONFIG.supabaseUrl === "string" &&
@@ -209,14 +200,16 @@
   }
 
   async function hasAdminSession() {
-    const adminEmailHash = String(CONFIG.adminEmailHash || "").toLowerCase();
-    if (!adminEmailHash) return false;
+    const client = createAuthClient();
+    if (!client) return false;
+
+    const user = await getAuthUser();
+    if (!user) return false;
 
     try {
-      const email = await getAuthedEmail();
-      if (!email) return false;
-      const emailHash = await sha256(email);
-      return emailHash === adminEmailHash;
+      const { data, error } = await client.rpc("is_admin");
+      if (error) return false;
+      return Boolean(data);
     } catch {
       return false;
     }

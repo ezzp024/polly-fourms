@@ -77,16 +77,17 @@ on public.posts for insert
 to anon, authenticated
 with check (true);
 
+-- Replace '__ADMIN_EMAIL__' with your admin email before running this script.
 create policy "Admin update posts"
 on public.posts for update
 to authenticated
-using ((auth.jwt() ->> 'email') = 'ezzp024@gmail.com')
-with check ((auth.jwt() ->> 'email') = 'ezzp024@gmail.com');
+using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__')
+with check ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
 
 create policy "Admin delete posts"
 on public.posts for delete
 to authenticated
-using ((auth.jwt() ->> 'email') = 'ezzp024@gmail.com');
+using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
 
 create policy "Public read comments"
 on public.comments for select
@@ -101,7 +102,7 @@ with check (true);
 create policy "Admin delete comments"
 on public.comments for delete
 to authenticated
-using ((auth.jwt() ->> 'email') = 'ezzp024@gmail.com');
+using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
 
 create policy "Public create reports"
 on public.reports for insert
@@ -111,21 +112,34 @@ with check (true);
 create policy "Admin read reports"
 on public.reports for select
 to authenticated
-using ((auth.jwt() ->> 'email') = 'ezzp024@gmail.com');
+using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
 
 create policy "Admin update reports"
 on public.reports for update
 to authenticated
-using ((auth.jwt() ->> 'email') = 'ezzp024@gmail.com')
-with check ((auth.jwt() ->> 'email') = 'ezzp024@gmail.com');
+using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__')
+with check ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
 
 create policy "Admin read bans"
 on public.banned_users for select
 to authenticated
-using ((auth.jwt() ->> 'email') = 'ezzp024@gmail.com');
+using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
 
 create policy "Admin write bans"
 on public.banned_users for all
 to authenticated
-using ((auth.jwt() ->> 'email') = 'ezzp024@gmail.com')
-with check ((auth.jwt() ->> 'email') = 'ezzp024@gmail.com');
+using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__')
+with check ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select (auth.jwt() ->> 'email') = '__ADMIN_EMAIL__';
+$$;
+
+revoke all on function public.is_admin() from public;
+grant execute on function public.is_admin() to authenticated;

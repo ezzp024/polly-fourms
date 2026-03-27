@@ -22,6 +22,7 @@
 
   const api = window.PollyApi.createApi();
   const adminStatus = document.getElementById("adminStatus");
+  const adminContent = document.getElementById("adminContent");
   const adminStats = document.getElementById("adminStats");
   const reportRows = document.getElementById("reportRows");
   const controlRows = document.getElementById("controlRows");
@@ -29,6 +30,7 @@
   const banRows = document.getElementById("banRows");
 
   adminStatus.textContent = "Admin session verified.";
+  adminContent.classList.remove("hidden-block");
 
   function downloadJson(filename, payload) {
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
