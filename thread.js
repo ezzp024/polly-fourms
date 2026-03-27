@@ -137,7 +137,7 @@
     event.preventDefault();
     const nickname = getNickname();
     if (!nickname) {
-      alert("Set your nickname first in the top bar.");
+      alert("Set your display name in Profile settings first.");
       return;
     }
 
@@ -183,7 +183,7 @@
     if (!cachedPost) return;
     const nickname = getNickname();
     if (!nickname) {
-      alert("Set your nickname first in the top bar.");
+      alert("Set your display name in Profile settings first.");
       return;
     }
 

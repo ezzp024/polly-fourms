@@ -102,6 +102,12 @@
       if (error) throw error;
       await refreshStatus();
 
+      const profile = await window.PollyCommon.fetchMyProfile();
+      if (!profile || !profile.display_name) {
+        window.location.replace("profile.html?setup=1");
+        return;
+      }
+
       const isAdmin = await window.PollyCommon.hasAdminSession();
       if (isAdmin && next === "admin.html") {
         window.location.replace("admin.html");

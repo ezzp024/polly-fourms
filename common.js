@@ -1,6 +1,11 @@
 (function () {
   const CONFIG = window.POLLY_CONFIG || {};
   const AUTH_STORAGE_KEY = "polly_auth_main";
+  const identityState = {
+    loaded: false,
+    user: null,
+    profile: null
+  };
 
   const SECTION_META = {
     software: {
@@ -53,6 +58,9 @@
   }
 
   function getNickname() {
+    if (identityState.profile && identityState.profile.display_name) {
+      return identityState.profile.display_name;
+    }
     return localStorage.getItem("polly_nickname") || "";
   }
 
@@ -60,18 +68,94 @@
     localStorage.setItem("polly_nickname", value);
   }
 
+  async function fetchMyProfile() {
+    const client = createAuthClient();
+    const user = await getAuthUser();
+    if (!client || !user) return null;
+
+    const { data, error } = await client
+      .from("profiles")
+      .select("user_id, display_name, bio, created_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error) return null;
+    return data || null;
+  }
+
+  async function ensureIdentityLoaded() {
+    if (identityState.loaded) return identityState;
+    identityState.user = await getAuthUser();
+    identityState.profile = await fetchMyProfile();
+    if (identityState.profile && identityState.profile.display_name) {
+      setNickname(identityState.profile.display_name);
+    }
+    identityState.loaded = true;
+    return identityState;
+  }
+
+  async function saveMyDisplayName(displayName) {
+    const client = createAuthClient();
+    const user = await getAuthUser();
+    if (!client || !user) throw new Error("Login required");
+
+    const clean = String(displayName || "").trim().slice(0, 24);
+    if (!clean) throw new Error("Display name is required");
+
+    const { error } = await client.from("profiles").upsert(
+      {
+        user_id: user.id,
+        display_name: clean
+      },
+      { onConflict: "user_id" }
+    );
+
+    if (error) throw error;
+
+    identityState.profile = {
+      ...(identityState.profile || {}),
+      user_id: user.id,
+      display_name: clean
+    };
+    identityState.user = user;
+    identityState.loaded = true;
+    setNickname(clean);
+    return clean;
+  }
+
   function initIdentityForm() {
     const form = document.getElementById("identityForm");
     const input = document.getElementById("nickname");
     if (!form || !input) return;
 
-    input.value = getNickname();
-    form.addEventListener("submit", (event) => {
+    void ensureIdentityLoaded().then((state) => {
+      if (state.profile && state.profile.display_name) {
+        input.value = state.profile.display_name;
+      } else {
+        input.value = getNickname();
+      }
+      if (!state.user) {
+        input.placeholder = "Login to set display name";
+      }
+    });
+
+    form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const value = input.value.trim().slice(0, 24);
       if (!value) return;
-      setNickname(value);
-      input.value = value;
+      try {
+        const user = await getAuthUser();
+        if (user) {
+          const saved = await saveMyDisplayName(value);
+          input.value = saved;
+        } else {
+          setNickname(value);
+          input.value = value;
+        }
+      } catch {
+        setNickname(value);
+        input.value = value;
+      }
     });
   }
 
@@ -280,6 +364,9 @@
     createAuthClient,
     getAuthUser,
     getAuthedEmail,
+    fetchMyProfile,
+    ensureIdentityLoaded,
+    saveMyDisplayName,
     getRoleByNickname,
     getCurrentRole,
     isModerator,

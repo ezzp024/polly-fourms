@@ -6,6 +6,8 @@
       is_pinned: false,
       is_sticky: false,
       is_hidden: false,
+      is_locked: false,
+      is_solved: false,
       hidden_reason: "",
       ...post
     };
@@ -180,7 +182,7 @@
     async getPosts() {
       const { data, error } = await this.client
         .from("posts")
-        .select("id, title, body, category, software_url, tags, author_name, created_at, is_pinned, is_sticky, is_hidden, hidden_reason")
+        .select("id, title, body, category, software_url, tags, author_name, author_user_id, created_at, is_pinned, is_sticky, is_hidden, is_locked, is_solved, hidden_reason")
         .order("created_at", { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -190,7 +192,7 @@
     async getPostById(id) {
       const { data, error } = await this.client
         .from("posts")
-        .select("id, title, body, category, software_url, tags, author_name, created_at, is_pinned, is_sticky, is_hidden, hidden_reason")
+        .select("id, title, body, category, software_url, tags, author_name, author_user_id, created_at, is_pinned, is_sticky, is_hidden, is_locked, is_solved, hidden_reason")
         .eq("id", id)
         .single();
       if (error) return null;
@@ -200,7 +202,7 @@
     async getComments() {
       const { data, error } = await this.client
         .from("comments")
-        .select("id, post_id, author_name, body, created_at")
+        .select("id, post_id, author_name, author_user_id, body, created_at")
         .order("created_at", { ascending: true })
         .limit(3000);
       if (error) throw error;
@@ -210,11 +212,38 @@
     async getReports() {
       const { data, error } = await this.client
         .from("reports")
-        .select("id, post_id, reason, reporter_name, status, created_at, resolved_at, resolved_by")
+        .select("id, post_id, reason, reporter_name, reporter_user_id, status, created_at, resolved_at, resolved_by")
         .order("created_at", { ascending: false })
         .limit(2000);
       if (error) throw error;
       return data || [];
+    }
+
+    async getMyProfile() {
+      const user = await this.getCurrentUser();
+      if (!user) return null;
+      const { data, error } = await this.client
+        .from("profiles")
+        .select("user_id, display_name, bio, created_at")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data || null;
+    }
+
+    async upsertMyProfile(profile) {
+      const user = await this.getCurrentUser();
+      if (!user) throw new Error("Login required");
+      const clean = String(profile.display_name || "").trim().slice(0, 24);
+      if (!clean) throw new Error("Display name is required");
+      const { error } = await this.client.from("profiles").upsert(
+        {
+          user_id: user.id,
+          display_name: clean
+        },
+        { onConflict: "user_id" }
+      );
+      if (error) throw error;
     }
 
     async getBannedUsers() {
@@ -228,7 +257,20 @@
     }
 
     async isNicknameBanned(name) {
+      const user = await this.getCurrentUser();
+      if (user) {
+        const { data, error } = await this.client
+          .from("banned_users")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("active", true)
+          .limit(1);
+        if (!error && (data || []).length > 0) return true;
+      }
+
       const normalized = String(name || "").trim().toLowerCase();
+      if (!normalized) return false;
+
       const { data, error } = await this.client
         .from("banned_users")
         .select("id")
@@ -240,13 +282,22 @@
     }
 
     async createPost(post) {
+      const user = await this.getCurrentUser();
+      if (!user) throw new Error("Please login to create a thread.");
+
+      const profile = await this.getMyProfile();
+      if (!profile || !profile.display_name) {
+        throw new Error("Please set your display name in profile settings first.");
+      }
+
       const { error } = await this.client.from("posts").insert({
         title: post.title,
         body: post.body,
         category: post.category,
         software_url: post.software_url || null,
         tags: Array.isArray(post.tags) ? post.tags : [],
-        author_name: post.author_name,
+        author_name: profile.display_name,
+        author_user_id: user.id,
         is_pinned: false,
         is_sticky: false,
         is_hidden: false,
@@ -281,9 +332,18 @@
     }
 
     async createComment(comment) {
+      const user = await this.getCurrentUser();
+      if (!user) throw new Error("Please login to reply.");
+
+      const profile = await this.getMyProfile();
+      if (!profile || !profile.display_name) {
+        throw new Error("Please set your display name in profile settings first.");
+      }
+
       const { error } = await this.client.from("comments").insert({
         post_id: comment.post_id,
-        author_name: comment.author_name,
+        author_name: profile.display_name,
+        author_user_id: user.id,
         body: comment.body
       });
       if (error) throw error;
@@ -295,10 +355,19 @@
     }
 
     async createReport(report) {
+      const user = await this.getCurrentUser();
+      if (!user) throw new Error("Please login to report.");
+
+      const profile = await this.getMyProfile();
+      if (!profile || !profile.display_name) {
+        throw new Error("Please set your display name in profile settings first.");
+      }
+
       const { error } = await this.client.from("reports").insert({
         post_id: report.post_id,
         reason: report.reason,
-        reporter_name: report.reporter_name,
+        reporter_name: profile.display_name,
+        reporter_user_id: user.id,
         status: "open"
       });
       if (error) throw error;

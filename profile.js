@@ -20,11 +20,32 @@
   const recentReplies = document.getElementById("recentReplies");
   const memberSearch = document.getElementById("memberSearch");
   const memberDirectory = document.getElementById("memberDirectory");
+  const accountStatus = document.getElementById("accountStatus");
+  const accountForm = document.getElementById("accountForm");
+  const accountDisplayName = document.getElementById("accountDisplayName");
 
   const query = new URLSearchParams(window.location.search);
   const targetHandle = toHandle(query.get("user") || "");
 
   let allMembers = [];
+
+  async function loadAccountSettings() {
+    const user = await window.PollyCommon.getAuthUser();
+    if (!user) {
+      accountStatus.textContent = "You are not logged in. Login first, then set your display name.";
+      accountForm.style.display = "none";
+      return;
+    }
+
+    accountForm.style.display = "grid";
+    const profile = await window.PollyCommon.fetchMyProfile();
+    if (profile && profile.display_name) {
+      accountDisplayName.value = profile.display_name;
+      accountStatus.textContent = "Your display name is set. You can update it here.";
+    } else {
+      accountStatus.textContent = "Please set your display name. Posting is blocked until you do.";
+    }
+  }
 
   function renderDirectory(items) {
     memberDirectory.innerHTML = items.length
@@ -105,9 +126,37 @@
     profileMeta.textContent = `Could not load member data: ${escapeHtml(error.message || String(error))}`;
   }
 
+  try {
+    await loadAccountSettings();
+  } catch {
+    accountStatus.textContent = "Could not load account settings.";
+  }
+
   memberSearch.addEventListener("input", () => {
     const queryText = memberSearch.value.trim().toLowerCase();
     const filtered = allMembers.filter((member) => member.displayName.toLowerCase().includes(queryText));
     renderDirectory(filtered);
+  });
+
+  accountForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const value = String(accountDisplayName.value || "").trim();
+    if (!value) return;
+
+    try {
+      await window.PollyCommon.saveMyDisplayName(value);
+      accountStatus.textContent = "Display name saved successfully.";
+      const [postsRaw, comments] = await Promise.all([api.getPosts(), api.getComments()]);
+      const posts = isModerator() ? postsRaw : postsRaw.filter((p) => !p.is_hidden);
+      const statsMap = buildMemberStats(posts, comments);
+      allMembers = [...statsMap.values()].sort((a, b) => b.score - a.score || a.displayName.localeCompare(b.displayName));
+      renderDirectory(allMembers);
+      const selected = statsMap.get(toHandle(value));
+      if (selected) {
+        renderProfile(selected);
+      }
+    } catch (error) {
+      accountStatus.textContent = `Could not save display name: ${escapeHtml(error.message || String(error))}`;
+    }
   });
 })();

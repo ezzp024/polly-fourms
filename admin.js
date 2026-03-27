@@ -6,7 +6,6 @@
     profileLink,
     escapeHtml,
     buildMemberStats,
-    toHandle,
     hasAdminSession
   } = window.PollyCommon;
 
@@ -184,13 +183,13 @@
     }
     if (action === "ban-user") {
       const reason = prompt("Ban reason:", "Policy violation") || "Policy violation";
-      return api.banUser(toHandle(rawUser), reason, nickname);
+      return api.banUser(rawUser, reason, nickname);
     }
     if (action === "remove-user-content") {
       if (!confirm(`Remove all posts/comments by ${rawUser}?`)) return;
       await api.deletePostsByAuthor(rawUser);
       await api.deleteCommentsByAuthor(rawUser);
-      return api.banUser(toHandle(rawUser), "Removed by administrator", nickname);
+      return api.banUser(rawUser, "Removed by administrator", nickname);
     }
     if (action === "unban") return api.unbanUser(id);
   }

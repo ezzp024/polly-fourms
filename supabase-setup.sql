@@ -1,136 +1,6 @@
 create extension if not exists pgcrypto;
 
-create table if not exists public.posts (
-  id uuid primary key default gen_random_uuid(),
-  title text not null check (char_length(title) between 3 and 120),
-  body text not null check (char_length(body) between 3 and 4000),
-  category text not null default 'discussion',
-  software_url text,
-  tags text[] not null default '{}',
-  author_name text not null check (char_length(author_name) between 2 and 24),
-  is_pinned boolean not null default false,
-  is_sticky boolean not null default false,
-  is_hidden boolean not null default false,
-  hidden_reason text,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.comments (
-  id uuid primary key default gen_random_uuid(),
-  post_id uuid not null references public.posts(id) on delete cascade,
-  author_name text not null check (char_length(author_name) between 2 and 24),
-  body text not null check (char_length(body) between 1 and 500),
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.reports (
-  id uuid primary key default gen_random_uuid(),
-  post_id uuid not null references public.posts(id) on delete cascade,
-  reason text not null check (char_length(reason) between 3 and 500),
-  reporter_name text not null check (char_length(reporter_name) between 2 and 24),
-  status text not null default 'open',
-  resolved_by text,
-  resolved_at timestamptz,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.banned_users (
-  id uuid primary key default gen_random_uuid(),
-  nickname text not null,
-  reason text,
-  banned_by text,
-  active boolean not null default true,
-  resolved_at timestamptz,
-  created_at timestamptz not null default now()
-);
-
-create index if not exists idx_banned_users_nickname_active on public.banned_users (nickname, active);
-
-alter table public.posts enable row level security;
-alter table public.comments enable row level security;
-alter table public.reports enable row level security;
-alter table public.banned_users enable row level security;
-
-drop policy if exists "Public read posts" on public.posts;
-drop policy if exists "Public create posts" on public.posts;
-drop policy if exists "Admin update posts" on public.posts;
-drop policy if exists "Admin delete posts" on public.posts;
-
-drop policy if exists "Public read comments" on public.comments;
-drop policy if exists "Public create comments" on public.comments;
-drop policy if exists "Admin delete comments" on public.comments;
-
-drop policy if exists "Public create reports" on public.reports;
-drop policy if exists "Admin read reports" on public.reports;
-drop policy if exists "Admin update reports" on public.reports;
-
-drop policy if exists "Admin read bans" on public.banned_users;
-drop policy if exists "Admin write bans" on public.banned_users;
-
-create policy "Public read posts"
-on public.posts for select
-to anon, authenticated
-using (true);
-
-create policy "Public create posts"
-on public.posts for insert
-to anon, authenticated
-with check (true);
-
 -- Replace '__ADMIN_EMAIL__' with your admin email before running this script.
-create policy "Admin update posts"
-on public.posts for update
-to authenticated
-using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__')
-with check ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
-
-create policy "Admin delete posts"
-on public.posts for delete
-to authenticated
-using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
-
-create policy "Public read comments"
-on public.comments for select
-to anon, authenticated
-using (true);
-
-create policy "Public create comments"
-on public.comments for insert
-to anon, authenticated
-with check (true);
-
-create policy "Admin delete comments"
-on public.comments for delete
-to authenticated
-using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
-
-create policy "Public create reports"
-on public.reports for insert
-to anon, authenticated
-with check (true);
-
-create policy "Admin read reports"
-on public.reports for select
-to authenticated
-using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
-
-create policy "Admin update reports"
-on public.reports for update
-to authenticated
-using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__')
-with check ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
-
-create policy "Admin read bans"
-on public.banned_users for select
-to authenticated
-using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
-
-create policy "Admin write bans"
-on public.banned_users for all
-to authenticated
-using ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__')
-with check ((auth.jwt() ->> 'email') = '__ADMIN_EMAIL__');
-
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -143,3 +13,227 @@ $$;
 
 revoke all on function public.is_admin() from public;
 grant execute on function public.is_admin() to authenticated;
+
+create table if not exists public.profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  display_name text not null unique check (char_length(display_name) between 2 and 24),
+  bio text default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.posts (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(title) between 3 and 120),
+  body text not null check (char_length(body) between 3 and 4000),
+  category text not null default 'discussion',
+  software_url text,
+  tags text[] not null default '{}',
+  author_name text not null check (char_length(author_name) between 2 and 24),
+  author_user_id uuid references auth.users(id) on delete set null,
+  is_pinned boolean not null default false,
+  is_sticky boolean not null default false,
+  is_hidden boolean not null default false,
+  is_locked boolean not null default false,
+  is_solved boolean not null default false,
+  hidden_reason text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.comments (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.posts(id) on delete cascade,
+  author_name text not null check (char_length(author_name) between 2 and 24),
+  author_user_id uuid references auth.users(id) on delete set null,
+  body text not null check (char_length(body) between 1 and 500),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.reports (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.posts(id) on delete cascade,
+  reason text not null check (char_length(reason) between 3 and 500),
+  reporter_name text not null check (char_length(reporter_name) between 2 and 24),
+  reporter_user_id uuid references auth.users(id) on delete set null,
+  status text not null default 'open',
+  resolved_by text,
+  resolved_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.banned_users (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade,
+  nickname text,
+  reason text,
+  banned_by text,
+  active boolean not null default true,
+  resolved_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.moderation_logs (
+  id uuid primary key default gen_random_uuid(),
+  action text not null,
+  target_type text not null,
+  target_id text,
+  actor_email text,
+  details jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_posts_author_user_id on public.posts (author_user_id);
+create index if not exists idx_comments_author_user_id on public.comments (author_user_id);
+create index if not exists idx_reports_post_id on public.reports (post_id);
+create index if not exists idx_banned_users_user_id_active on public.banned_users (user_id, active);
+create index if not exists idx_banned_users_nickname_active on public.banned_users (nickname, active);
+
+alter table public.profiles enable row level security;
+alter table public.posts enable row level security;
+alter table public.comments enable row level security;
+alter table public.reports enable row level security;
+alter table public.banned_users enable row level security;
+alter table public.moderation_logs enable row level security;
+
+drop policy if exists "Public read profiles" on public.profiles;
+drop policy if exists "Self create profile" on public.profiles;
+drop policy if exists "Self update profile" on public.profiles;
+drop policy if exists "Admin update any profile" on public.profiles;
+
+drop policy if exists "Public read posts" on public.posts;
+drop policy if exists "Authenticated create posts" on public.posts;
+drop policy if exists "Owner update posts" on public.posts;
+drop policy if exists "Owner delete posts" on public.posts;
+drop policy if exists "Admin update posts" on public.posts;
+drop policy if exists "Admin delete posts" on public.posts;
+
+drop policy if exists "Public read comments" on public.comments;
+drop policy if exists "Authenticated create comments" on public.comments;
+drop policy if exists "Owner delete comments" on public.comments;
+drop policy if exists "Admin delete comments" on public.comments;
+
+drop policy if exists "Authenticated create reports" on public.reports;
+drop policy if exists "Admin read reports" on public.reports;
+drop policy if exists "Admin update reports" on public.reports;
+
+drop policy if exists "Admin read bans" on public.banned_users;
+drop policy if exists "Admin write bans" on public.banned_users;
+
+drop policy if exists "Admin read moderation logs" on public.moderation_logs;
+drop policy if exists "Admin write moderation logs" on public.moderation_logs;
+
+create policy "Public read profiles"
+on public.profiles for select
+to anon, authenticated
+using (true);
+
+create policy "Self create profile"
+on public.profiles for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "Self update profile"
+on public.profiles for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+create policy "Admin update any profile"
+on public.profiles for update
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy "Public read posts"
+on public.posts for select
+to anon, authenticated
+using ((not is_hidden) or public.is_admin());
+
+create policy "Authenticated create posts"
+on public.posts for insert
+to authenticated
+with check (auth.uid() = author_user_id and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.display_name = author_name));
+
+create policy "Owner update posts"
+on public.posts for update
+to authenticated
+using (auth.uid() = author_user_id)
+with check (auth.uid() = author_user_id);
+
+create policy "Owner delete posts"
+on public.posts for delete
+to authenticated
+using (auth.uid() = author_user_id);
+
+create policy "Admin update posts"
+on public.posts for update
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy "Admin delete posts"
+on public.posts for delete
+to authenticated
+using (public.is_admin());
+
+create policy "Public read comments"
+on public.comments for select
+to anon, authenticated
+using (true);
+
+create policy "Authenticated create comments"
+on public.comments for insert
+to authenticated
+with check (
+  auth.uid() = author_user_id
+  and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.display_name = author_name)
+  and exists (select 1 from public.posts po where po.id = post_id and (not po.is_locked or public.is_admin()))
+);
+
+create policy "Owner delete comments"
+on public.comments for delete
+to authenticated
+using (auth.uid() = author_user_id);
+
+create policy "Admin delete comments"
+on public.comments for delete
+to authenticated
+using (public.is_admin());
+
+create policy "Authenticated create reports"
+on public.reports for insert
+to authenticated
+with check (auth.uid() = reporter_user_id);
+
+create policy "Admin read reports"
+on public.reports for select
+to authenticated
+using (public.is_admin());
+
+create policy "Admin update reports"
+on public.reports for update
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy "Admin read bans"
+on public.banned_users for select
+to authenticated
+using (public.is_admin());
+
+create policy "Admin write bans"
+on public.banned_users for all
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy "Admin read moderation logs"
+on public.moderation_logs for select
+to authenticated
+using (public.is_admin());
+
+create policy "Admin write moderation logs"
+on public.moderation_logs for insert
+to authenticated
+with check (public.is_admin());
