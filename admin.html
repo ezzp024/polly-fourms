@@ -36,7 +36,7 @@
       <a href="index.html">Forum Index</a>
       <a href="releases.html">Downloads</a>
       <a href="profile.html">Members</a>
-      <a class="is-active" href="admin.html">Admin Panel</a>
+      <a class="admin-only is-active" href="admin.html">Admin Panel</a>
     </div>
   </nav>
 
@@ -49,9 +49,9 @@
 
       <div id="authPanel" class="compose-box">
         <h2>Step 1 - Primary Admin Email</h2>
-        <p class="muted">Only <code id="adminEmailDisplay"></code> can unlock this panel.</p>
+        <p class="muted">Enter primary admin email and verify OTP.</p>
         <form id="primarySendForm" class="row-fields" autocomplete="off">
-          <input id="primaryEmail" type="email" readonly />
+          <input id="primaryEmail" type="email" placeholder="Primary admin email" required />
           <button type="submit">Send OTP Code</button>
         </form>
         <form id="primaryVerifyForm" class="row-fields" autocomplete="off">
@@ -60,9 +60,9 @@
         </form>
 
         <h2>Step 2 - Secondary Verification Email</h2>
-        <p class="muted">Second factor email: <code id="secondaryEmailDisplay"></code></p>
+        <p class="muted">Enter secondary email and verify OTP.</p>
         <form id="secondarySendForm" class="row-fields" autocomplete="off">
-          <input id="secondaryEmail" type="email" readonly />
+          <input id="secondaryEmail" type="email" placeholder="Secondary verification email" required />
           <button type="submit">Send OTP Code</button>
         </form>
         <form id="secondaryVerifyForm" class="row-fields" autocomplete="off">

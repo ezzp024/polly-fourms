@@ -23,18 +23,13 @@
   const userRows = document.getElementById("userRows");
   const banRows = document.getElementById("banRows");
 
-  const adminEmail = String(CONFIG.adminEmail || "").toLowerCase();
-  const secondaryEmail = String(CONFIG.secondaryAdminEmail || "").toLowerCase();
+  const adminEmailHash = String(CONFIG.adminEmailHash || "").toLowerCase();
+  const secondaryEmailHash = String(CONFIG.secondaryAdminEmailHash || "").toLowerCase();
 
-  const adminEmailDisplay = document.getElementById("adminEmailDisplay");
-  const secondaryEmailDisplay = document.getElementById("secondaryEmailDisplay");
   const primaryEmail = document.getElementById("primaryEmail");
   const secondaryInput = document.getElementById("secondaryEmail");
 
-  adminEmailDisplay.textContent = adminEmail || "not configured";
-  secondaryEmailDisplay.textContent = secondaryEmail || "not configured";
-  primaryEmail.value = adminEmail;
-  secondaryInput.value = secondaryEmail;
+  const PRIMARY_HASH_KEY = "polly_admin_primary_email";
 
   const canUseSupabaseAuth =
     window.supabase &&
@@ -52,6 +47,27 @@
     : null;
 
   const FACTOR_KEY = "polly_admin_factor2";
+
+  async function sha256(input) {
+    if (!window.crypto || !window.crypto.subtle) return "";
+    const bytes = new TextEncoder().encode(String(input || "").trim().toLowerCase());
+    const hashBuffer = await window.crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  function setPrimaryHash(hash) {
+    if (hash) {
+      sessionStorage.setItem(PRIMARY_HASH_KEY, hash);
+    } else {
+      sessionStorage.removeItem(PRIMARY_HASH_KEY);
+    }
+  }
+
+  function getPrimaryHash() {
+    return String(sessionStorage.getItem(PRIMARY_HASH_KEY) || "").toLowerCase();
+  }
 
   function setSecondaryVerified(value) {
     if (value) {
@@ -79,7 +95,8 @@
     const user = await getPrimaryUser();
     if (!user) return false;
     const email = String(user.email || "").toLowerCase();
-    return email === adminEmail && isSecondaryVerified();
+    const hash = await sha256(email);
+    return hash === adminEmailHash && getPrimaryHash() === adminEmailHash && isSecondaryVerified();
   }
 
   function downloadJson(filename, payload) {
@@ -296,8 +313,8 @@
   }
 
   async function updateGate() {
-    if (!canUseSupabaseAuth || !adminEmail || !secondaryEmail) {
-      adminStatus.textContent = "Configure Supabase and admin emails in config.js to enable secured admin mode.";
+    if (!canUseSupabaseAuth || !adminEmailHash || !secondaryEmailHash) {
+      adminStatus.textContent = "Admin auth is not configured correctly.";
       authPanel.classList.remove("hidden-block");
       adminContent.classList.add("hidden-block");
       return;
@@ -308,12 +325,14 @@
       adminStatus.textContent = "Admin locked. Complete both OTP steps.";
       authPanel.classList.remove("hidden-block");
       adminContent.classList.add("hidden-block");
+      document.body.classList.remove("is-admin");
       return;
     }
 
-    adminStatus.textContent = `Admin unlocked for ${adminEmail}. Full control enabled.`;
+    adminStatus.textContent = "Admin unlocked. Full control enabled.";
     authPanel.classList.add("hidden-block");
     adminContent.classList.remove("hidden-block");
+    document.body.classList.add("is-admin");
     await renderAdmin();
   }
 
@@ -339,57 +358,84 @@
 
   document.getElementById("primarySendForm").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const email = String(primaryEmail.value || "").trim().toLowerCase();
+    const hash = await sha256(email);
+    if (!email || hash !== adminEmailHash) {
+      alert("Access denied.");
+      return;
+    }
     try {
-      await sendOtp(primaryClient, adminEmail);
-      alert("OTP sent to primary admin email.");
+      await sendOtp(primaryClient, email);
+      alert("OTP sent.");
     } catch (error) {
-      alert(`Could not send primary OTP: ${error.message || String(error)}`);
+      alert("Could not send OTP.");
     }
   });
 
   document.getElementById("primaryVerifyForm").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const email = String(primaryEmail.value || "").trim().toLowerCase();
+    const emailHash = await sha256(email);
+    if (!email || emailHash !== adminEmailHash) {
+      alert("Access denied.");
+      return;
+    }
     const token = String(document.getElementById("primaryOtp").value || "").trim();
     if (!token) return;
     try {
-      const user = await verifyOtp(primaryClient, adminEmail, token);
-      const email = String((user && user.email) || "").toLowerCase();
-      if (email !== adminEmail) {
-        throw new Error("Primary OTP verified with wrong email.");
+      const user = await verifyOtp(primaryClient, email, token);
+      const verifiedEmail = String((user && user.email) || "").toLowerCase();
+      const verifiedHash = await sha256(verifiedEmail);
+      if (verifiedHash !== adminEmailHash) {
+        throw new Error("Access denied");
       }
+      setPrimaryHash(verifiedHash);
       alert("Step 1 verified.");
       await updateGate();
     } catch (error) {
-      alert(`Could not verify primary OTP: ${error.message || String(error)}`);
+      alert("Could not verify primary OTP.");
     }
   });
 
   document.getElementById("secondarySendForm").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const email = String(secondaryInput.value || "").trim().toLowerCase();
+    const hash = await sha256(email);
+    if (!email || hash !== secondaryEmailHash || getPrimaryHash() !== adminEmailHash) {
+      alert("Access denied.");
+      return;
+    }
     try {
-      await sendOtp(secondaryClient, secondaryEmail);
-      alert("OTP sent to secondary email.");
+      await sendOtp(secondaryClient, email);
+      alert("OTP sent.");
     } catch (error) {
-      alert(`Could not send secondary OTP: ${error.message || String(error)}`);
+      alert("Could not send secondary OTP.");
     }
   });
 
   document.getElementById("secondaryVerifyForm").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const email = String(secondaryInput.value || "").trim().toLowerCase();
+    const emailHash = await sha256(email);
+    if (!email || emailHash !== secondaryEmailHash || getPrimaryHash() !== adminEmailHash) {
+      alert("Access denied.");
+      return;
+    }
     const token = String(document.getElementById("secondaryOtp").value || "").trim();
     if (!token) return;
     try {
-      const user = await verifyOtp(secondaryClient, secondaryEmail, token);
-      const email = String((user && user.email) || "").toLowerCase();
-      if (email !== secondaryEmail) {
-        throw new Error("Secondary OTP verified with wrong email.");
+      const user = await verifyOtp(secondaryClient, email, token);
+      const verifiedEmail = String((user && user.email) || "").toLowerCase();
+      const verifiedHash = await sha256(verifiedEmail);
+      if (verifiedHash !== secondaryEmailHash) {
+        throw new Error("Access denied");
       }
       setSecondaryVerified(true);
       await secondaryClient.auth.signOut();
       alert("Step 2 verified.");
       await updateGate();
     } catch (error) {
-      alert(`Could not verify secondary OTP: ${error.message || String(error)}`);
+      alert("Could not verify secondary OTP.");
     }
   });
 
@@ -405,6 +451,7 @@
       await secondaryClient.auth.signOut();
     }
     setSecondaryVerified(false);
+    setPrimaryHash("");
     await updateGate();
   });
 

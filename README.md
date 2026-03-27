@@ -75,8 +75,8 @@ Then open `config.js` and paste your values:
 window.POLLY_CONFIG = {
   supabaseUrl: "https://YOUR-PROJECT.supabase.co",
   supabaseAnonKey: "YOUR_PUBLIC_ANON_KEY",
-  adminEmail: "ezzp024@gmail.com",
-  secondaryAdminEmail: "yuripoli1973@gmail.com",
+  adminEmailHash: "<sha256-of-primary-email>",
+  secondaryAdminEmailHash: "<sha256-of-secondary-email>",
   moderatorNames: ["admin"],
   adminNames: ["admin"]
 };

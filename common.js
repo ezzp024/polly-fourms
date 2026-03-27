@@ -1,6 +1,7 @@
 (function () {
   const CONFIG = window.POLLY_CONFIG || {};
   const ADMIN_FACTOR_KEY = "polly_admin_factor2";
+  const ADMIN_PRIMARY_KEY = "polly_admin_primary_email";
 
   const SECTION_META = {
     software: {
@@ -180,8 +181,18 @@
     return Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 1000 * 60 * 30;
   }
 
+  async function sha256(input) {
+    if (!window.crypto || !window.crypto.subtle) return "";
+    const bytes = new TextEncoder().encode(String(input || "").trim().toLowerCase());
+    const hashBuffer = await window.crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
   async function hasAdminSession() {
-    const adminEmail = String(CONFIG.adminEmail || "").toLowerCase();
+    const adminEmailHash = String(CONFIG.adminEmailHash || "").toLowerCase();
+    const rememberedPrimary = String(sessionStorage.getItem(ADMIN_PRIMARY_KEY) || "").toLowerCase();
     const hasSupabase =
       typeof CONFIG.supabaseUrl === "string" &&
       CONFIG.supabaseUrl.length > 0 &&
@@ -189,7 +200,8 @@
       CONFIG.supabaseAnonKey.length > 0 &&
       window.supabase;
 
-    if (!adminEmail || !hasSupabase || !isSecondFactorValid()) return false;
+    if (!adminEmailHash || !rememberedPrimary || !hasSupabase || !isSecondFactorValid()) return false;
+    if (rememberedPrimary !== adminEmailHash) return false;
 
     try {
       const client = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
@@ -198,7 +210,8 @@
       const { data, error } = await client.auth.getUser();
       if (error || !data || !data.user) return false;
       const email = String(data.user.email || "").toLowerCase();
-      return email === adminEmail;
+      const emailHash = await sha256(email);
+      return emailHash === adminEmailHash;
     } catch {
       return false;
     }
