@@ -35,6 +35,7 @@
     <div class="container nav-inner">
       <a href="index.html">Forum Index</a>
       <a href="releases.html">Downloads</a>
+      <a href="auth.html">Login</a>
       <a href="profile.html">Members</a>
       <a class="admin-only is-active" href="admin.html">Admin Panel</a>
     </div>
@@ -44,39 +45,10 @@
     <section class="panel">
       <div class="panel-head">
         <h1>Administrator Panel</h1>
-        <p id="adminStatus">Secure admin sign-in required.</p>
+        <p id="adminStatus">Checking secure admin session...</p>
       </div>
 
-      <div id="authPanel" class="compose-box">
-        <h2>Step 1 - Primary Admin Email</h2>
-        <p class="muted">Enter primary admin email and verify OTP.</p>
-        <form id="primarySendForm" class="row-fields" autocomplete="off">
-          <input id="primaryEmail" type="email" placeholder="Primary admin email" required />
-          <button type="submit">Send OTP Code</button>
-        </form>
-        <form id="primaryVerifyForm" class="row-fields" autocomplete="off">
-          <input id="primaryOtp" type="text" placeholder="Enter OTP from primary email" required />
-          <button type="submit">Verify Step 1</button>
-        </form>
-
-        <h2>Step 2 - Secondary Verification Email</h2>
-        <p class="muted">Enter secondary email and verify OTP.</p>
-        <form id="secondarySendForm" class="row-fields" autocomplete="off">
-          <input id="secondaryEmail" type="email" placeholder="Secondary verification email" required />
-          <button type="submit">Send OTP Code</button>
-        </form>
-        <form id="secondaryVerifyForm" class="row-fields" autocomplete="off">
-          <input id="secondaryOtp" type="text" placeholder="Enter OTP from secondary email" required />
-          <button type="submit">Verify Step 2</button>
-        </form>
-
-        <div class="thread-actions">
-          <button type="button" id="refreshSession">Re-check Session</button>
-          <button type="button" id="logoutAdmin">Sign Out</button>
-        </div>
-      </div>
-
-      <div id="adminContent" class="thread-box hidden-block">
+      <div id="adminContent" class="thread-box">
         <h2>Site Statistics</h2>
         <div id="adminStats" class="profile-kpis"></div>
 
@@ -145,7 +117,8 @@
       <section class="panel mini-panel">
         <h2>Security Notes</h2>
         <ul>
-          <li>Admin page requires primary email + secondary email OTP verification.</li>
+          <li>This page only opens with an active admin session.</li>
+          <li>Login from <code>auth.html</code> with the admin account.</li>
           <li>For production, keep Supabase RLS rules strict (see SQL file).</li>
           <li>No local browser-only auth can be considered fully secure.</li>
         </ul>

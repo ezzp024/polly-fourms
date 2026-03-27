@@ -1,5 +1,4 @@
 (async function () {
-  const CONFIG = window.POLLY_CONFIG || {};
   const {
     initIdentityForm,
     getNickname,
@@ -8,96 +7,28 @@
     escapeHtml,
     buildMemberStats,
     toHandle,
-    rankFromScore
+    hasAdminSession
   } = window.PollyCommon;
 
   initIdentityForm();
 
-  const api = window.PollyApi.createApi({ authStorageKey: "polly_admin_primary" });
+  const allowed = await hasAdminSession();
+  if (!allowed) {
+    window.location.replace("auth.html?next=admin.html");
+    return;
+  }
+
+  document.body.classList.add("is-admin");
+
+  const api = window.PollyApi.createApi();
   const adminStatus = document.getElementById("adminStatus");
-  const authPanel = document.getElementById("authPanel");
-  const adminContent = document.getElementById("adminContent");
   const adminStats = document.getElementById("adminStats");
   const reportRows = document.getElementById("reportRows");
   const controlRows = document.getElementById("controlRows");
   const userRows = document.getElementById("userRows");
   const banRows = document.getElementById("banRows");
 
-  const adminEmailHash = String(CONFIG.adminEmailHash || "").toLowerCase();
-  const secondaryEmailHash = String(CONFIG.secondaryAdminEmailHash || "").toLowerCase();
-
-  const primaryEmail = document.getElementById("primaryEmail");
-  const secondaryInput = document.getElementById("secondaryEmail");
-
-  const PRIMARY_HASH_KEY = "polly_admin_primary_email";
-
-  const canUseSupabaseAuth =
-    window.supabase &&
-    typeof CONFIG.supabaseUrl === "string" &&
-    CONFIG.supabaseUrl &&
-    typeof CONFIG.supabaseAnonKey === "string" &&
-    CONFIG.supabaseAnonKey;
-
-  const primaryClient = canUseSupabaseAuth
-    ? window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, { auth: { storageKey: "polly_admin_primary" } })
-    : null;
-
-  const secondaryClient = canUseSupabaseAuth
-    ? window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, { auth: { storageKey: "polly_admin_secondary" } })
-    : null;
-
-  const FACTOR_KEY = "polly_admin_factor2";
-
-  async function sha256(input) {
-    if (!window.crypto || !window.crypto.subtle) return "";
-    const bytes = new TextEncoder().encode(String(input || "").trim().toLowerCase());
-    const hashBuffer = await window.crypto.subtle.digest("SHA-256", bytes);
-    return Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-  }
-
-  function setPrimaryHash(hash) {
-    if (hash) {
-      sessionStorage.setItem(PRIMARY_HASH_KEY, hash);
-    } else {
-      sessionStorage.removeItem(PRIMARY_HASH_KEY);
-    }
-  }
-
-  function getPrimaryHash() {
-    return String(sessionStorage.getItem(PRIMARY_HASH_KEY) || "").toLowerCase();
-  }
-
-  function setSecondaryVerified(value) {
-    if (value) {
-      sessionStorage.setItem(FACTOR_KEY, String(Date.now()));
-    } else {
-      sessionStorage.removeItem(FACTOR_KEY);
-    }
-  }
-
-  function isSecondaryVerified() {
-    const raw = sessionStorage.getItem(FACTOR_KEY);
-    if (!raw) return false;
-    const ageMs = Date.now() - Number(raw);
-    return Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 1000 * 60 * 30;
-  }
-
-  async function getPrimaryUser() {
-    if (!primaryClient) return null;
-    const { data, error } = await primaryClient.auth.getUser();
-    if (error) return null;
-    return data.user || null;
-  }
-
-  async function isAdminSessionValid() {
-    const user = await getPrimaryUser();
-    if (!user) return false;
-    const email = String(user.email || "").toLowerCase();
-    const hash = await sha256(email);
-    return hash === adminEmailHash && getPrimaryHash() === adminEmailHash && isSecondaryVerified();
-  }
+  adminStatus.textContent = "Admin session verified.";
 
   function downloadJson(filename, payload) {
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -233,59 +164,33 @@
   async function runAction(action, id, state, rawUser) {
     const nickname = getNickname() || "admin";
 
-    if (action === "resolve-report") {
-      await api.resolveReport(id, nickname);
-      return;
-    }
-
-    if (action === "pin") {
-      await api.updatePost(id, { is_pinned: !state });
-      return;
-    }
-
-    if (action === "sticky") {
-      await api.updatePost(id, { is_sticky: !state });
-      return;
-    }
-
+    if (action === "resolve-report") return api.resolveReport(id, nickname);
+    if (action === "pin") return api.updatePost(id, { is_pinned: !state });
+    if (action === "sticky") return api.updatePost(id, { is_sticky: !state });
     if (action === "hide") {
       const nextHidden = !state;
       let reason = "";
       if (nextHidden) {
         reason = prompt("Reason for hiding thread:", "Needs moderator review") || "Needs moderator review";
       }
-      await api.updatePost(id, { is_hidden: nextHidden, hidden_reason: nextHidden ? reason : "" });
-      return;
+      return api.updatePost(id, { is_hidden: nextHidden, hidden_reason: nextHidden ? reason : "" });
     }
-
-    if (action === "remove-link") {
-      await api.clearPostLink(id);
-      return;
-    }
-
+    if (action === "remove-link") return api.clearPostLink(id);
     if (action === "delete-thread") {
       if (!confirm("Delete this thread permanently?")) return;
-      await api.deletePost(id);
-      return;
+      return api.deletePost(id);
     }
-
     if (action === "ban-user") {
       const reason = prompt("Ban reason:", "Policy violation") || "Policy violation";
-      await api.banUser(toHandle(rawUser), reason, nickname);
-      return;
+      return api.banUser(toHandle(rawUser), reason, nickname);
     }
-
     if (action === "remove-user-content") {
       if (!confirm(`Remove all posts/comments by ${rawUser}?`)) return;
       await api.deletePostsByAuthor(rawUser);
       await api.deleteCommentsByAuthor(rawUser);
-      await api.banUser(toHandle(rawUser), "Removed by administrator", nickname);
-      return;
+      return api.banUser(toHandle(rawUser), "Removed by administrator", nickname);
     }
-
-    if (action === "unban") {
-      await api.unbanUser(id);
-    }
+    if (action === "unban") return api.unbanUser(id);
   }
 
   function getButton(event) {
@@ -312,153 +217,10 @@
     }
   }
 
-  async function updateGate() {
-    if (!canUseSupabaseAuth || !adminEmailHash || !secondaryEmailHash) {
-      adminStatus.textContent = "Admin auth is not configured correctly.";
-      authPanel.classList.remove("hidden-block");
-      adminContent.classList.add("hidden-block");
-      return;
-    }
-
-    const valid = await isAdminSessionValid();
-    if (!valid) {
-      adminStatus.textContent = "Admin locked. Complete both OTP steps.";
-      authPanel.classList.remove("hidden-block");
-      adminContent.classList.add("hidden-block");
-      document.body.classList.remove("is-admin");
-      return;
-    }
-
-    adminStatus.textContent = "Admin unlocked. Full control enabled.";
-    authPanel.classList.add("hidden-block");
-    adminContent.classList.remove("hidden-block");
-    document.body.classList.add("is-admin");
-    await renderAdmin();
-  }
-
-  async function sendOtp(client, email) {
-    const { error } = await client.auth.signInWithOtp({
-      email,
-      options: {
-        shouldCreateUser: true
-      }
-    });
-    if (error) throw error;
-  }
-
-  async function verifyOtp(client, email, token) {
-    const { data, error } = await client.auth.verifyOtp({
-      email,
-      token,
-      type: "email"
-    });
-    if (error) throw error;
-    return data.user || null;
-  }
-
-  document.getElementById("primarySendForm").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const email = String(primaryEmail.value || "").trim().toLowerCase();
-    const hash = await sha256(email);
-    if (!email || hash !== adminEmailHash) {
-      alert("Access denied.");
-      return;
-    }
-    try {
-      await sendOtp(primaryClient, email);
-      alert("OTP sent.");
-    } catch (error) {
-      alert("Could not send OTP.");
-    }
-  });
-
-  document.getElementById("primaryVerifyForm").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const email = String(primaryEmail.value || "").trim().toLowerCase();
-    const emailHash = await sha256(email);
-    if (!email || emailHash !== adminEmailHash) {
-      alert("Access denied.");
-      return;
-    }
-    const token = String(document.getElementById("primaryOtp").value || "").trim();
-    if (!token) return;
-    try {
-      const user = await verifyOtp(primaryClient, email, token);
-      const verifiedEmail = String((user && user.email) || "").toLowerCase();
-      const verifiedHash = await sha256(verifiedEmail);
-      if (verifiedHash !== adminEmailHash) {
-        throw new Error("Access denied");
-      }
-      setPrimaryHash(verifiedHash);
-      alert("Step 1 verified.");
-      await updateGate();
-    } catch (error) {
-      alert("Could not verify primary OTP.");
-    }
-  });
-
-  document.getElementById("secondarySendForm").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const email = String(secondaryInput.value || "").trim().toLowerCase();
-    const hash = await sha256(email);
-    if (!email || hash !== secondaryEmailHash || getPrimaryHash() !== adminEmailHash) {
-      alert("Access denied.");
-      return;
-    }
-    try {
-      await sendOtp(secondaryClient, email);
-      alert("OTP sent.");
-    } catch (error) {
-      alert("Could not send secondary OTP.");
-    }
-  });
-
-  document.getElementById("secondaryVerifyForm").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const email = String(secondaryInput.value || "").trim().toLowerCase();
-    const emailHash = await sha256(email);
-    if (!email || emailHash !== secondaryEmailHash || getPrimaryHash() !== adminEmailHash) {
-      alert("Access denied.");
-      return;
-    }
-    const token = String(document.getElementById("secondaryOtp").value || "").trim();
-    if (!token) return;
-    try {
-      const user = await verifyOtp(secondaryClient, email, token);
-      const verifiedEmail = String((user && user.email) || "").toLowerCase();
-      const verifiedHash = await sha256(verifiedEmail);
-      if (verifiedHash !== secondaryEmailHash) {
-        throw new Error("Access denied");
-      }
-      setSecondaryVerified(true);
-      await secondaryClient.auth.signOut();
-      alert("Step 2 verified.");
-      await updateGate();
-    } catch (error) {
-      alert("Could not verify secondary OTP.");
-    }
-  });
-
-  document.getElementById("refreshSession").addEventListener("click", () => {
-    void updateGate();
-  });
-
-  document.getElementById("logoutAdmin").addEventListener("click", async () => {
-    if (primaryClient) {
-      await primaryClient.auth.signOut();
-    }
-    if (secondaryClient) {
-      await secondaryClient.auth.signOut();
-    }
-    setSecondaryVerified(false);
-    setPrimaryHash("");
-    await updateGate();
-  });
-
   reportRows.addEventListener("click", handleTableActions);
   controlRows.addEventListener("click", handleTableActions);
   userRows.addEventListener("click", handleTableActions);
   banRows.addEventListener("click", handleTableActions);
 
-  await updateGate();
+  await renderAdmin();
 })();

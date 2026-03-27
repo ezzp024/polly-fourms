@@ -1,7 +1,6 @@
 (function () {
   const CONFIG = window.POLLY_CONFIG || {};
-  const ADMIN_FACTOR_KEY = "polly_admin_factor2";
-  const ADMIN_PRIMARY_KEY = "polly_admin_primary_email";
+  const AUTH_STORAGE_KEY = "polly_auth_main";
 
   const SECTION_META = {
     software: {
@@ -174,13 +173,6 @@
     return role === "admin" || role === "moderator";
   }
 
-  function isSecondFactorValid() {
-    const raw = sessionStorage.getItem(ADMIN_FACTOR_KEY);
-    if (!raw) return false;
-    const ageMs = Date.now() - Number(raw);
-    return Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 1000 * 60 * 30;
-  }
-
   async function sha256(input) {
     if (!window.crypto || !window.crypto.subtle) return "";
     const bytes = new TextEncoder().encode(String(input || "").trim().toLowerCase());
@@ -190,26 +182,39 @@
       .join("");
   }
 
-  async function hasAdminSession() {
-    const adminEmailHash = String(CONFIG.adminEmailHash || "").toLowerCase();
-    const rememberedPrimary = String(sessionStorage.getItem(ADMIN_PRIMARY_KEY) || "").toLowerCase();
+  function createAuthClient() {
     const hasSupabase =
       typeof CONFIG.supabaseUrl === "string" &&
       CONFIG.supabaseUrl.length > 0 &&
       typeof CONFIG.supabaseAnonKey === "string" &&
       CONFIG.supabaseAnonKey.length > 0 &&
       window.supabase;
+    if (!hasSupabase) return null;
+    return window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
+      auth: { storageKey: AUTH_STORAGE_KEY }
+    });
+  }
 
-    if (!adminEmailHash || !rememberedPrimary || !hasSupabase || !isSecondFactorValid()) return false;
-    if (rememberedPrimary !== adminEmailHash) return false;
+  async function getAuthUser() {
+    const client = createAuthClient();
+    if (!client) return null;
+    const { data, error } = await client.auth.getUser();
+    if (error) return null;
+    return data.user || null;
+  }
+
+  async function getAuthedEmail() {
+    const user = await getAuthUser();
+    return user ? String(user.email || "").toLowerCase() : "";
+  }
+
+  async function hasAdminSession() {
+    const adminEmailHash = String(CONFIG.adminEmailHash || "").toLowerCase();
+    if (!adminEmailHash) return false;
 
     try {
-      const client = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
-        auth: { storageKey: "polly_admin_primary" }
-      });
-      const { data, error } = await client.auth.getUser();
-      if (error || !data || !data.user) return false;
-      const email = String(data.user.email || "").toLowerCase();
+      const email = await getAuthedEmail();
+      if (!email) return false;
       const emailHash = await sha256(email);
       return emailHash === adminEmailHash;
     } catch {
@@ -279,6 +284,9 @@
     profileLink,
     rankFromScore,
     buildMemberStats,
+    createAuthClient,
+    getAuthUser,
+    getAuthedEmail,
     getRoleByNickname,
     getCurrentRole,
     isModerator,
