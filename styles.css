@@ -1,0 +1,382 @@
+:root {
+  --bg: #090f16;
+  --bg-2: #111d2b;
+  --panel: #101926cc;
+  --panel-border: #2a394b;
+  --text: #ecf2ff;
+  --muted: #98acc9;
+  --accent: #30d2b2;
+  --accent-2: #ffb454;
+  --danger: #ff6e6e;
+  --radius: 14px;
+  --shadow: 0 14px 40px rgba(0, 0, 0, 0.33);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: "Chivo", "Segoe UI", sans-serif;
+  color: var(--text);
+  background: linear-gradient(130deg, var(--bg) 0%, #0f1c2c 50%, #101e1f 100%);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(48, 210, 178, 0.2), transparent 45%),
+    radial-gradient(circle at 88% 24%, rgba(255, 180, 84, 0.15), transparent 40%),
+    radial-gradient(circle at 55% 88%, rgba(116, 170, 255, 0.18), transparent 45%);
+}
+
+.container {
+  width: min(1150px, 92vw);
+  margin-inline: auto;
+}
+
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.2rem 0 0.5rem;
+}
+
+.brand {
+  color: inherit;
+  text-decoration: none;
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.brand-mark {
+  width: 2.3rem;
+  height: 2.3rem;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), #2a9fdd);
+  color: #082026;
+  font-weight: 900;
+}
+
+.brand strong {
+  display: block;
+  font-family: "Fraunces", serif;
+  letter-spacing: 0.4px;
+}
+
+.brand small {
+  color: var(--muted);
+}
+
+.identity-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid #324960;
+  background: #0f1a27;
+  color: var(--text);
+  padding: 0.66rem 0.72rem;
+  border-radius: 9px;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: 2px solid #53cfbb;
+  outline-offset: 2px;
+}
+
+button {
+  border: 0;
+  background: #1d2f45;
+  color: var(--text);
+  border-radius: 9px;
+  padding: 0.63rem 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  background: #2a4461;
+}
+
+button.primary {
+  background: linear-gradient(125deg, var(--accent), #2cb6de);
+  color: #052027;
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 0.9fr;
+  gap: 1rem;
+  padding-bottom: 2rem;
+}
+
+.panel {
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+}
+
+.hero {
+  padding: 1.35rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent-2);
+  font-weight: 700;
+}
+
+.hero h1 {
+  margin: 0.4rem 0 0.55rem;
+  max-width: 20ch;
+  line-height: 1.1;
+  font-family: "Fraunces", serif;
+  font-size: clamp(1.35rem, 3.6vw, 2.2rem);
+}
+
+.hero p {
+  color: #d7e5fa;
+  margin-top: 0;
+}
+
+.hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.hero-metrics article {
+  background: #0c1725;
+  border: 1px solid #2f4358;
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.hero-metrics span {
+  display: block;
+  font-weight: 900;
+  color: var(--accent);
+  font-size: 1.25rem;
+}
+
+.hero-metrics small {
+  color: var(--muted);
+}
+
+.composer {
+  padding: 1.1rem;
+  grid-row: 1 / span 2;
+}
+
+.composer h2,
+.feed h2 {
+  margin: 0 0 0.8rem;
+  font-family: "Fraunces", serif;
+}
+
+.composer form {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.composer label {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  color: #d7e6fb;
+}
+
+.feed {
+  padding: 1rem;
+}
+
+.feed-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.8rem;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 0.55rem;
+  min-width: min(100%, 420px);
+  flex: 1;
+}
+
+.feed-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.post-card {
+  border: 1px solid #2a394b;
+  background: #0b1521;
+  border-radius: 11px;
+  padding: 0.9rem;
+  animation: rise 260ms ease;
+}
+
+.post-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.post-category {
+  display: inline-block;
+  border: 1px solid #3f5d75;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--accent);
+  padding: 0.25rem 0.55rem;
+}
+
+.post-time {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.post-title {
+  margin: 0.55rem 0 0.45rem;
+}
+
+.post-body {
+  margin: 0;
+  color: #e2ecfd;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.software-link {
+  margin-top: 0.55rem;
+  color: #9bd8ff;
+  display: inline-block;
+}
+
+.post-tags {
+  margin-top: 0.55rem;
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.post-tags span {
+  font-size: 0.8rem;
+  border-radius: 999px;
+  border: 1px solid #344861;
+  padding: 0.18rem 0.48rem;
+  color: #d2e5ff;
+}
+
+.post-meta {
+  margin-top: 0.55rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+details {
+  margin-top: 0.6rem;
+}
+
+summary {
+  cursor: pointer;
+  color: #dcecff;
+}
+
+.comments-list {
+  margin: 0.55rem 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.comment {
+  border-left: 2px solid #2d5264;
+  background: #0d1724;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0 9px 9px 0;
+}
+
+.comment strong {
+  font-size: 0.87rem;
+}
+
+.comment p {
+  margin: 0.2rem 0 0;
+  color: #d9e8ff;
+}
+
+.comment-form {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.empty-state {
+  color: var(--muted);
+  text-align: center;
+}
+
+.hidden {
+  display: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 960px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .composer {
+    grid-row: auto;
+  }
+}

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Polly Forums</title>
+  <meta name="description" content="Polly Forums - share software, discuss coding, and help each other build." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;500;700;900&family=Fraunces:opsz,wght@9..144,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+  <header class="site-header container">
+    <a href="#" class="brand">
+      <span class="brand-mark">PF</span>
+      <span>
+        <strong>Polly Forums</strong>
+        <small>Open Software Community</small>
+      </span>
+    </a>
+
+    <form id="identityForm" class="identity-form" autocomplete="off">
+      <label class="sr-only" for="nickname">Nickname</label>
+      <input id="nickname" name="nickname" type="text" maxlength="24" placeholder="Set your nickname" required />
+      <button type="submit">Save</button>
+    </form>
+  </header>
+
+  <main class="container main-grid">
+    <section class="hero panel">
+      <p class="eyebrow">Public Release Hub</p>
+      <h1>Share your software. Get feedback. Build faster together.</h1>
+      <p>
+        Post your tools, launch updates, discuss code, and discover projects made by indie developers.
+      </p>
+      <div class="hero-metrics">
+        <article>
+          <span id="metricPosts">0</span>
+          <small>Posts</small>
+        </article>
+        <article>
+          <span id="metricSoftware">0</span>
+          <small>Software Releases</small>
+        </article>
+        <article>
+          <span id="metricComments">0</span>
+          <small>Comments</small>
+        </article>
+      </div>
+    </section>
+
+    <aside class="composer panel">
+      <h2>Create post</h2>
+      <form id="postForm" autocomplete="off">
+        <label>
+          Title
+          <input id="title" name="title" type="text" maxlength="120" required />
+        </label>
+        <label>
+          Category
+          <select id="category" name="category">
+            <option value="software">Software Release</option>
+            <option value="discussion">Discussion</option>
+            <option value="help">Help / Support</option>
+            <option value="showcase">Showcase</option>
+          </select>
+        </label>
+        <label>
+          Description
+          <textarea id="content" name="content" rows="5" maxlength="4000" required></textarea>
+        </label>
+        <label>
+          Download / Repo URL (optional)
+          <input id="softwareUrl" name="softwareUrl" type="url" placeholder="https://" />
+        </label>
+        <label>
+          Tags (comma separated)
+          <input id="tags" name="tags" type="text" maxlength="120" placeholder="python, ui, tool" />
+        </label>
+        <button type="submit" class="primary">Publish post</button>
+      </form>
+    </aside>
+
+    <section class="feed panel">
+      <div class="feed-toolbar">
+        <h2>Community Feed</h2>
+        <div class="toolbar-actions">
+          <input id="search" type="search" placeholder="Search posts..." />
+          <select id="categoryFilter">
+            <option value="all">All categories</option>
+            <option value="software">Software Release</option>
+            <option value="discussion">Discussion</option>
+            <option value="help">Help / Support</option>
+            <option value="showcase">Showcase</option>
+          </select>
+        </div>
+      </div>
+      <div id="feedList" class="feed-list"></div>
+      <p id="emptyState" class="empty-state hidden">No posts match your filters yet.</p>
+    </section>
+  </main>
+
+  <template id="postTemplate">
+    <article class="post-card">
+      <div class="post-head">
+        <span class="post-category"></span>
+        <time class="post-time"></time>
+      </div>
+      <h3 class="post-title"></h3>
+      <p class="post-body"></p>
+      <a class="software-link hidden" target="_blank" rel="noopener noreferrer">Open Software Link</a>
+      <div class="post-tags"></div>
+      <div class="post-meta"></div>
+      <details>
+        <summary>Comments <span class="comment-count">0</span></summary>
+        <div class="comments-list"></div>
+        <form class="comment-form" autocomplete="off">
+          <input name="comment" type="text" maxlength="500" placeholder="Write a comment" required />
+          <button type="submit">Reply</button>
+        </form>
+      </details>
+    </article>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
