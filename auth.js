@@ -12,6 +12,13 @@
   const params = new URLSearchParams(window.location.search);
   const next = params.get("next") || "index.html";
 
+  function getEmailRedirectUrl() {
+    const url = new URL("auth.html", window.location.href);
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  }
+
   function clearAuthInputs() {
     registerEmail.value = "";
     registerPassword.value = "";
@@ -70,7 +77,13 @@
     const password = String(registerPassword.value || "");
 
     try {
-      const { error } = await client.auth.signUp({ email, password });
+      const { error } = await client.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: getEmailRedirectUrl()
+        }
+      });
       if (error) throw error;
       statusEl.textContent = "Registration submitted. Check your email if confirmation is required.";
       await refreshStatus();
