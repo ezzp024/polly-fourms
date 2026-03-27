@@ -1,6 +1,7 @@
 (function () {
   const CONFIG = window.POLLY_CONFIG || {};
   const AUTH_STORAGE_KEY = "polly_auth_main";
+  let authClient = null;
   const identityState = {
     loaded: false,
     user: null,
@@ -265,9 +266,12 @@
       CONFIG.supabaseAnonKey.length > 0 &&
       window.supabase;
     if (!hasSupabase) return null;
-    return window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
-      auth: { storageKey: AUTH_STORAGE_KEY }
-    });
+    if (!authClient) {
+      authClient = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
+        auth: { storageKey: AUTH_STORAGE_KEY }
+      });
+    }
+    return authClient;
   }
 
   async function getAuthUser() {
