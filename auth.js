@@ -17,11 +17,6 @@
     return;
   }
 
-  registerEmail.value = "ezzp024@gmail.com";
-  registerPassword.value = "12312344!y";
-  loginEmail.value = "ezzp024@gmail.com";
-  loginPassword.value = "12312344!y";
-
   async function refreshStatus() {
     const user = await window.PollyCommon.getAuthUser();
     if (!user) {
