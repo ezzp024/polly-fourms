@@ -40,6 +40,7 @@
 
   let cachedPost = null;
   let currentUser = null;
+  let cachedComments = [];
   let canModerate = false;
 
   async function safeLog(action, targetType, targetId, details) {
@@ -128,15 +129,15 @@
       <div class="tags">${tags.map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>
     `;
 
-    const comments = allComments.filter((item) => item.post_id === id);
-    commentsList.innerHTML = comments.length
-      ? comments
+    cachedComments = allComments.filter((item) => item.post_id === id);
+    commentsList.innerHTML = cachedComments.length
+      ? cachedComments
           .map(
             (comment) => `
               <article class="comment-item">
                 <strong><a href="${profileLink(comment.author_name)}">${escapeHtml(comment.author_name)}</a></strong> <small class="muted">${formatDate(comment.created_at)}</small>
                 <p>${escapeHtml(comment.body)}</p>
-                ${(canModerate || (currentUser && comment.author_user_id && comment.author_user_id === currentUser.id)) ? `<p><button type="button" data-action="delete-comment" data-id="${comment.id}">Delete Comment</button></p>` : ""}
+                ${(canModerate || (currentUser && comment.author_user_id && comment.author_user_id === currentUser.id)) ? `<p><button type="button" data-action="delete-comment" data-id="${comment.id}" data-owner="${comment.author_user_id || ""}">Delete Comment</button></p>` : ""}
               </article>
             `
           )
@@ -338,6 +339,11 @@
 
   editThread.addEventListener("click", async () => {
     if (!cachedPost) return;
+    const isOwner = Boolean(currentUser && cachedPost.author_user_id && currentUser.id === cachedPost.author_user_id);
+    if (!isOwner && !canModerate) {
+      alert("You do not have permission to edit this thread.");
+      return;
+    }
     const title = prompt("Edit title", cachedPost.title);
     if (!title || !title.trim()) return;
     const body = prompt("Edit body", cachedPost.body);
@@ -359,6 +365,11 @@
 
   deleteThread.addEventListener("click", async () => {
     if (!cachedPost) return;
+    const isOwner = Boolean(currentUser && cachedPost.author_user_id && currentUser.id === cachedPost.author_user_id);
+    if (!isOwner && !canModerate) {
+      alert("You do not have permission to delete this thread.");
+      return;
+    }
     if (!confirm("Delete this thread permanently?")) return;
     try {
       await api.deletePost(cachedPost.id);
@@ -374,7 +385,18 @@
     if (!(target instanceof HTMLElement) || target.tagName !== "BUTTON") return;
     const action = target.getAttribute("data-action");
     const commentId = target.getAttribute("data-id");
+    const commentOwner = target.getAttribute("data-owner") || "";
     if (action !== "delete-comment" || !commentId) return;
+
+    const canDelete = canModerate || Boolean(currentUser && commentOwner && currentUser.id === commentOwner);
+    if (!canDelete) {
+      alert("You do not have permission to delete this comment.");
+      return;
+    }
+
+    const commentExists = cachedComments.some((comment) => comment.id === commentId);
+    if (!commentExists) return;
+
     if (!confirm("Delete this comment?")) return;
 
     try {
