@@ -2,13 +2,19 @@
   const statusEl = document.getElementById("authStatus");
   const registerForm = document.getElementById("registerForm");
   const resendForm = document.getElementById("resendForm");
-  const registerBlock = document.getElementById("registerBlock");
+  const loginSection = document.getElementById("loginSection");
+  const registerSection = document.getElementById("registerSection");
+  const resendSection = document.getElementById("resendSection");
+  const loggedInSection = document.getElementById("loggedInSection");
   const loginForm = document.getElementById("loginForm");
   const registerEmail = document.getElementById("registerEmail");
   const registerPassword = document.getElementById("registerPassword");
   const loginEmail = document.getElementById("loginEmail");
   const loginPassword = document.getElementById("loginPassword");
   const resendEmail = document.getElementById("resendEmail");
+  const showResend = document.getElementById("showResend");
+  const backToLogin = document.getElementById("backToLogin");
+  const authTabs = document.querySelectorAll(".auth-tab");
 
   const client = window.PollyCommon.createAuthClient();
   const allowRegistration = (window.POLLY_CONFIG || {}).allowRegistration !== false;
@@ -28,13 +34,47 @@
     return new URLSearchParams(raw);
   }
 
+  function showTab(tabName) {
+    loginSection.classList.toggle("hidden-block", tabName !== "login");
+    registerSection.classList.toggle("hidden-block", tabName !== "register");
+    resendSection.classList.toggle("hidden-block", tabName !== "resend");
+    authTabs.forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.tab === tabName);
+    });
+    if (tabName === "login") {
+      statusEl.textContent = "Login to your account or create a new one.";
+    } else if (tabName === "register") {
+      statusEl.textContent = "Create a new account.";
+    } else if (tabName === "resend") {
+      statusEl.textContent = "Resend verification email.";
+    }
+  }
+
+  authTabs.forEach(tab => {
+    tab.addEventListener("click", () => showTab(tab.dataset.tab));
+  });
+
+  if (showResend) {
+    showResend.addEventListener("click", (e) => {
+      e.preventDefault();
+      showTab("resend");
+    });
+  }
+
+  if (backToLogin) {
+    backToLogin.addEventListener("click", (e) => {
+      e.preventDefault();
+      showTab("login");
+    });
+  }
+
   if (!client) {
     statusEl.textContent = "Supabase is not configured yet.";
     return;
   }
 
-  if (!allowRegistration && registerBlock) {
-    registerBlock.style.display = "none";
+  if (!allowRegistration && registerSection) {
+    registerSection.style.display = "none";
     if (resendForm) {
       resendForm.style.display = "none";
     }
@@ -50,6 +90,16 @@
     const email = String(user.email || "");
     const isAdmin = await window.PollyCommon.hasAdminSession();
     document.body.classList.toggle("is-admin", isAdmin);
+    
+    if (loggedInSection) {
+      loginSection.classList.add("hidden-block");
+      registerSection.classList.add("hidden-block");
+      resendSection.classList.add("hidden-block");
+      loggedInSection.classList.remove("hidden-block");
+      const authTabsContainer = document.querySelector(".auth-tabs");
+      if (authTabsContainer) authTabsContainer.classList.add("hidden-block");
+    }
+    
     statusEl.textContent = isAdmin
       ? `Logged in as ${email} (admin verified).`
       : `Logged in as ${email}.`;
@@ -207,21 +257,24 @@
     }
   });
 
-  document.getElementById("checkSession").addEventListener("click", () => {
-    void refreshStatus();
-  });
-
-  document.getElementById("logoutBtn").addEventListener("click", async () => {
-    await client.auth.signOut();
-    document.body.classList.remove("is-admin");
-    statusEl.textContent = "Logged out.";
-    if (window.PollyCommon && window.PollyCommon.refreshSessionNav) {
-      await window.PollyCommon.refreshSessionNav();
-    }
-  });
-
   await refreshStatus();
   await handleVerificationLanding();
+
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", async () => {
+      await client.auth.signOut();
+      document.body.classList.remove("is-admin");
+      statusEl.textContent = "Logged out.";
+      const authTabsContainer = document.querySelector(".auth-tabs");
+      if (authTabsContainer) authTabsContainer.classList.remove("hidden-block");
+      loggedInSection.classList.add("hidden-block");
+      showTab("login");
+      if (window.PollyCommon && window.PollyCommon.refreshSessionNav) {
+        await window.PollyCommon.refreshSessionNav();
+      }
+    });
+  }
 
   client.auth.onAuthStateChange(async (eventName) => {
     if (eventName === "SIGNED_IN") {
@@ -229,6 +282,13 @@
     } else if (eventName === "SIGNED_OUT") {
       document.body.classList.remove("is-admin");
       statusEl.textContent = "Session ended.";
+      const authTabsContainer = document.querySelector(".auth-tabs");
+      if (authTabsContainer) authTabsContainer.classList.remove("hidden-block");
+      if (loggedInSection) {
+        loggedInSection.classList.add("hidden-block");
+        loginSection.classList.remove("hidden-block");
+      }
+      showTab("login");
       if (window.PollyCommon && window.PollyCommon.refreshSessionNav) {
         await window.PollyCommon.refreshSessionNav();
       }
