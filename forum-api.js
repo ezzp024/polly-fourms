@@ -227,6 +227,18 @@
   class SupabaseBackend {
     constructor(url, key, options) {
       const storageKey = (options && options.authStorageKey) || "polly_auth_main";
+      if (
+        storageKey === "polly_auth_main" &&
+        window.PollyCommon &&
+        typeof window.PollyCommon.createAuthClient === "function"
+      ) {
+        const shared = window.PollyCommon.createAuthClient();
+        if (shared) {
+          this.client = shared;
+          return;
+        }
+      }
+
       const clientOptions = { auth: { storageKey } };
       this.client = window.supabase.createClient(url, key, clientOptions);
     }
