@@ -18,7 +18,9 @@
     toHandle,
     canPerform,
     markPerformed,
-    formatWaitMs
+    formatWaitMs,
+    threadLink,
+    routePath
   } = window.PollyCommon;
 
   const api = window.PollyApi.createApi();
@@ -61,7 +63,7 @@
   sectionTabs.innerHTML = Object.values(SECTION_META)
     .map((entry) => {
       const isActive = entry.key === section.key ? "is-active" : "";
-      return `<a class="section-tab ${isActive}" href="forum.html?section=${entry.key}">${escapeHtml(entry.name)}</a>`;
+      return `<a class="section-tab ${isActive}" href="${routePath("forum", `section=${entry.key}`)}">${escapeHtml(entry.name)}</a>`;
     })
     .join("");
 
@@ -173,7 +175,7 @@
               <tr>
                 <td>
                   <div class="thread-row-title">
-                    <div class="thread-title-row"><strong><a href="thread.html?id=${post.id}">${escapeHtml(post.title)}</a></strong>${titleBadges}</div>
+                    <div class="thread-title-row"><strong><a href="${threadLink(post.id)}">${escapeHtml(post.title)}</a></strong>${titleBadges}</div>
                     <small>${escapeHtml(post.body.slice(0, 110))}${post.body.length > 110 ? "..." : ""}</small>
                     ${canModerate ? `<div class="mod-tools"><button type="button" data-post="${post.id}" data-action="pin">${post.is_pinned ? "Unpin" : "Pin"}</button><button type="button" data-post="${post.id}" data-action="sticky">${post.is_sticky ? "Unsticky" : "Sticky"}</button><button type="button" data-post="${post.id}" data-action="lock">${post.is_locked ? "Unlock" : "Lock"}</button><button type="button" data-post="${post.id}" data-action="solve">${post.is_solved ? "Unsolve" : "Solved"}</button><button type="button" data-post="${post.id}" data-action="hide">${post.is_hidden ? "Unhide" : "Hide"}</button></div>` : ""}
                   </div>
@@ -229,7 +231,7 @@
 
     const access = await ensureActionAccess(api, {
       actionLabel: "create a thread",
-      nextPath: `forum.html?section=${section.key}`,
+      nextPath: routePath("forum", `section=${section.key}`),
       requireProfile: true,
       checkBan: true
     });

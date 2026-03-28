@@ -45,11 +45,11 @@ async function main() {
 
   const staticPages = [
     { loc: "/", changefreq: "daily", priority: 1.0 },
-    { loc: "/forum.html", changefreq: "daily", priority: 0.9 },
-    { loc: "/releases.html", changefreq: "daily", priority: 0.8 },
-    { loc: "/profile.html", changefreq: "weekly", priority: 0.6 },
-    { loc: "/auth.html", changefreq: "weekly", priority: 0.5 },
-    { loc: "/admin.html", changefreq: "weekly", priority: 0.4 }
+    { loc: "/forum/", changefreq: "daily", priority: 0.9 },
+    { loc: "/releases/", changefreq: "daily", priority: 0.8 },
+    { loc: "/profile/", changefreq: "weekly", priority: 0.6 },
+    { loc: "/auth/", changefreq: "weekly", priority: 0.5 },
+    { loc: "/admin/", changefreq: "weekly", priority: 0.4 }
   ];
 
   const sectionMeta = [
@@ -61,14 +61,14 @@ async function main() {
 
   for (const section of sectionMeta) {
     staticPages.push({
-      loc: `/forum.html?section=${section.key}`,
+      loc: `/forum/?section=${section.key}`,
       changefreq: "daily",
       priority: 0.8
     });
   }
 
   const threadUrls = posts.map((post) => ({
-    loc: `/thread.html?id=${post.id}`,
+    loc: `/thread/?id=${post.id}`,
     lastmod: post.created_at,
     changefreq: "weekly",
     priority: 0.7
@@ -106,15 +106,15 @@ ${allUrls
 <rss version="2.0">
 <channel>
   <title>Polly Fourms - ${section.name}</title>
-  <link>${baseUrl}/forum.html?section=${section.key}</link>
+  <link>${baseUrl}/forum/?section=${section.key}</link>
   <description>Latest threads in ${section.name}</description>
   <language>en-us</language>
 ${sectionPosts
   .map(
     (p) => `  <item>
     <title>Thread ${p.id}</title>
-    <link>${baseUrl}/thread.html?id=${p.id}</link>
-    <guid>${baseUrl}/thread.html?id=${p.id}</guid>
+    <link>${baseUrl}/thread/?id=${p.id}</link>
+    <guid>${baseUrl}/thread/?id=${p.id}</guid>
     <pubDate>${new Date(p.created_at).toUTCString()}</pubDate>
   </item>`
   )

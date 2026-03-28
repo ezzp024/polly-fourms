@@ -20,10 +20,10 @@
   const allowRegistration = (window.POLLY_CONFIG || {}).allowRegistration !== false;
 
   const params = new URLSearchParams(window.location.search);
-  const next = window.PollyCommon.sanitizeNextPath(params.get("next") || "index.html");
+  const next = window.PollyCommon.sanitizeNextPath(params.get("next") || window.PollyCommon.routePath("index"));
 
   function getEmailRedirectUrl() {
-    const url = new URL("auth.html", window.location.href);
+    const url = new URL(window.PollyCommon.routePath("auth"), window.location.origin);
     url.search = "";
     url.hash = "";
     return url.toString();
@@ -254,23 +254,24 @@
 
       const profile = await window.PollyCommon.fetchMyProfile();
       if (!profile || !profile.display_name) {
-        window.location.replace("profile.html?setup=1");
+        window.location.replace(window.PollyCommon.routePath("profile", "setup=1"));
         return;
       }
 
       const isAdmin = await window.PollyCommon.hasAdminSession();
-      if (isAdmin && next === "admin.html") {
-        window.location.replace("admin.html");
+      const adminPath = window.PollyCommon.routePath("admin");
+      if (isAdmin && next.startsWith(adminPath)) {
+        window.location.replace(adminPath);
         return;
       }
 
-      if (!isAdmin && next === "admin.html") {
+      if (!isAdmin && next.startsWith(adminPath)) {
         statusEl.textContent = "Admin access denied for this account.";
-        window.location.replace("index.html");
+        window.location.replace(window.PollyCommon.routePath("index"));
         return;
       }
 
-      if (next && next !== "admin.html") {
+      if (next && !next.startsWith(adminPath)) {
         window.location.replace(next);
       }
     } catch (error) {

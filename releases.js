@@ -13,7 +13,8 @@
     toHandle,
     canPerform,
     markPerformed,
-    formatWaitMs
+    formatWaitMs,
+    threadLink
   } = window.PollyCommon;
   const api = window.PollyApi.createApi();
 
@@ -91,7 +92,7 @@
             ].join(" ");
             return `
               <article class="release-card">
-                <h3><a href="thread.html?id=${post.id}">${escapeHtml(post.title)}</a> ${flags}</h3>
+                <h3><a href="${threadLink(post.id)}">${escapeHtml(post.title)}</a> ${flags}</h3>
                 <p class="post-meta">by <a href="${profileLink(post.author_name)}">${escapeHtml(post.author_name)}</a> <span class="badge ${rankClass}">${rank}</span> - ${formatDate(post.created_at)}</p>
                 <p>${escapeHtml(post.body.slice(0, 170))}${post.body.length > 170 ? "..." : ""}</p>
                 <div class="tags">${tags.map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>

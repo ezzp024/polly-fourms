@@ -17,7 +17,9 @@
     formatWaitMs,
     isBookmarked,
     addBookmark,
-    removeBookmark
+    removeBookmark,
+    threadLink,
+    routePath
   } = window.PollyCommon;
   const api = window.PollyApi.createApi();
 
@@ -104,7 +106,7 @@
 
     const section = getSection(post.category);
     breadcrumb.textContent = `Forum Index > ${section.name} > ${post.title}`;
-    backToSection.href = `forum.html?section=${section.key}`;
+    backToSection.href = routePath("forum", `section=${section.key}`);
     threadTitle.textContent = post.title;
 
     const tags = Array.isArray(post.tags) ? post.tags : [];
@@ -174,7 +176,7 @@
           .map(
             (item) => `
               <article class="stack-item">
-                <strong><a href="thread.html?id=${item.id}">${escapeHtml(item.title)}</a></strong>
+                <strong><a href="${threadLink(item.id)}">${escapeHtml(item.title)}</a></strong>
                 <small>${formatDate(item.created_at)}</small>
               </article>
             `
@@ -437,7 +439,7 @@
     try {
       await api.deletePost(cachedPost.id);
       await safeLog("delete_thread", "post", cachedPost.id, {});
-      window.location.href = `forum.html?section=${encodeURIComponent(cachedPost.category || "general")}`;
+      window.location.href = routePath("forum", `section=${encodeURIComponent(cachedPost.category || "general")}`);
     } catch (error) {
       showPageNotice(`Could not delete thread: ${error.message || String(error)}`, "error", 5200);
     }

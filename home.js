@@ -8,7 +8,9 @@
     updateTopMetrics,
     buildMemberStats,
     profileLink,
-    hasModeratorSession
+    hasModeratorSession,
+    routePath,
+    threadLink
   } = window.PollyCommon;
   const api = window.PollyApi.createApi();
 
@@ -69,14 +71,14 @@
             ].join(" ")
           : "";
         const latestText = latest
-          ? `<div class="latest-meta"><a href="thread.html?id=${latest.id}">${escapeHtml(latest.title)}</a> ${latestFlags}<br>by <a href="${profileLink(latest.author_name)}">${escapeHtml(latest.author_name)}</a> - ${formatDate(latest.created_at)}</div>`
+          ? `<div class="latest-meta"><a href="${threadLink(latest.id)}">${escapeHtml(latest.title)}</a> ${latestFlags}<br>by <a href="${profileLink(latest.author_name)}">${escapeHtml(latest.author_name)}</a> - ${formatDate(latest.created_at)}</div>`
           : '<span class="muted">No threads yet</span>';
 
         return `
           <tr>
             <td>
               <div class="forum-title">
-                <strong><a href="forum.html?section=${section.key}">${escapeHtml(section.name)}</a></strong>
+                <strong><a href="${routePath("forum", `section=${section.key}`)}">${escapeHtml(section.name)}</a></strong>
                 <span>${escapeHtml(section.description)}</span>
               </div>
             </td>
@@ -94,7 +96,7 @@
           .map(
             (post) => `
               <article class="stack-item">
-                <strong><a href="thread.html?id=${post.id}">${escapeHtml(post.title)}</a> ${[
+                <strong><a href="${threadLink(post.id)}">${escapeHtml(post.title)}</a> ${[
                   post.is_pinned ? '<span class="badge badge-pin">Pinned</span>' : "",
                   post.is_sticky ? '<span class="badge badge-sticky">Sticky</span>' : "",
                   post.is_locked ? '<span class="badge badge-hidden">Locked</span>' : "",
@@ -113,7 +115,7 @@
         kind: "thread",
         created_at: post.created_at,
         text: `${post.author_name} opened thread: ${post.title}`,
-        link: `thread.html?id=${post.id}`
+        link: threadLink(post.id)
       });
     }
     for (const comment of comments.slice(-20)) {
@@ -121,7 +123,7 @@
         kind: "reply",
         created_at: comment.created_at,
         text: `${comment.author_name} replied on a thread`,
-        link: `thread.html?id=${comment.post_id}`
+        link: threadLink(comment.post_id)
       });
     }
     activity.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));

@@ -7,14 +7,16 @@
     escapeHtml,
     buildMemberStats,
     hasAdminSession,
-    showPageNotice
+    showPageNotice,
+    threadLink,
+    routePath
   } = window.PollyCommon;
 
   initIdentityForm();
 
   const allowed = await hasAdminSession();
   if (!allowed) {
-    window.location.replace("auth.html?next=admin.html");
+    window.location.replace(routePath("auth", `next=${encodeURIComponent(routePath("admin"))}`));
     return;
   }
 
@@ -201,7 +203,7 @@
             const post = byPostId.get(report.post_id);
             return `
               <tr>
-                <td>${post ? `<a href="thread.html?id=${post.id}">${escapeHtml(post.title)}</a>` : "Deleted thread"}</td>
+                <td>${post ? `<a href="${threadLink(post.id)}">${escapeHtml(post.title)}</a>` : "Deleted thread"}</td>
                 <td>${escapeHtml(report.reason || "No reason")}</td>
                 <td><a href="${profileLink(report.reporter_name)}">${escapeHtml(report.reporter_name)}</a></td>
                 <td>${formatDate(report.created_at)}</td>
@@ -220,7 +222,7 @@
               const encodedUrl = encodeURIComponent(String(item.submitted_url || ""));
               return `
                 <tr>
-                  <td><a href="thread.html?id=${item.post_id}">${escapeHtml(String(item.post_title || "Unknown thread"))}</a></td>
+                  <td><a href="${threadLink(item.post_id)}">${escapeHtml(String(item.post_title || "Unknown thread"))}</a></td>
                   <td><a href="${profileLink(item.submitted_by_name)}">${escapeHtml(String(item.submitted_by_name || "member"))}</a></td>
                   <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl.slice(0, 60)}${safeUrl.length > 60 ? "..." : ""}</a></td>
                   <td>${formatDate(item.created_at)}</td>
@@ -245,7 +247,7 @@
             return `
               <tr>
                 <td><input type="checkbox" class="bulk-checkbox" data-id="${post.id}" ${selectedThreadIds.has(post.id) ? "checked" : ""} /></td>
-                <td><a href="thread.html?id=${post.id}">${escapeHtml(post.title)}</a></td>
+                <td><a href="${threadLink(post.id)}">${escapeHtml(post.title)}</a></td>
                 <td>${flags || "None"}</td>
                 <td>
                   <button type="button" data-action="pin" data-id="${post.id}" data-state="${post.is_pinned ? "1" : "0"}">${post.is_pinned ? "Unpin" : "Pin"}</button>

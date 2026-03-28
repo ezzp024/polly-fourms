@@ -3,6 +3,8 @@
     initIdentityForm,
     toHandle,
     profileLink,
+    threadLink,
+    routePath,
     buildMemberStats,
     escapeHtml,
     formatDate,
@@ -224,7 +226,7 @@
           .map(
             (post) => `
               <article class="stack-item">
-                <strong><a href="thread.html?id=${post.id}">${escapeHtml(post.title)}</a></strong>
+                <strong><a href="${threadLink(post.id)}">${escapeHtml(post.title)}</a></strong>
                 <small>${formatDate(post.created_at)}</small>
               </article>
             `
@@ -238,7 +240,7 @@
           .map(
             (reply) => `
               <article class="stack-item">
-                <strong><a href="thread.html?id=${reply.post_id}">Reply on thread</a></strong>
+                <strong><a href="${threadLink(reply.post_id)}">Reply on thread</a></strong>
                 <small>${formatDate(reply.created_at)} - ${escapeHtml(reply.body.slice(0, 70))}${reply.body.length > 70 ? "..." : ""}</small>
               </article>
             `
@@ -439,7 +441,7 @@
         }
 
         alert("Your account has been deleted. We're sorry to see you go!");
-        window.location.href = "index.html";
+        window.location.href = routePath("index");
       } catch (error) {
         alert(`Account deletion failed: ${error.message}`);
       }

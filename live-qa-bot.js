@@ -766,11 +766,11 @@ async function main() {
 
   const pageChecks = await Promise.all([
     checkPage(`${pagesBase}/`, "Polly Fourms"),
-    checkPage(`${pagesBase}/auth.html`, "Welcome Back"),
-    checkPage(`${pagesBase}/forum.html?section=software`, "Create Thread"),
-    checkPage(`${pagesBase}/releases.html`, "Latest Software Releases"),
-    checkPage(`${pagesBase}/profile.html`, "Member"),
-    checkPage(`${pagesBase}/admin.html`, "Admin")
+    checkPage(`${pagesBase}/auth/`, "Welcome Back"),
+    checkPage(`${pagesBase}/forum/?section=software`, "Create Thread"),
+    checkPage(`${pagesBase}/releases/`, "Latest Software Releases"),
+    checkPage(`${pagesBase}/profile/`, "Member"),
+    checkPage(`${pagesBase}/admin/`, "Admin")
   ]);
 
   const syntaxFiles = [

@@ -356,7 +356,7 @@
           setNickname(value);
           input.value = value;
         } else {
-          window.location.href = "auth.html";
+          window.location.href = routePath("auth");
         }
       } catch {
         if (!hasSupabaseConfig()) {
@@ -390,7 +390,7 @@
 
   function profileLink(name) {
     const handle = encodeURIComponent(toHandle(name));
-    return `profile.html?user=${handle}`;
+    return routePath("profile", `user=${handle}`);
   }
 
   function rankFromScore(score) {
@@ -515,18 +515,22 @@
   }
 
   function sanitizeNextPath(rawNext) {
-    const fallback = "index.html";
+    const fallback = routePath("index");
     const next = String(rawNext || "").trim();
     if (!next) return fallback;
     if (next.startsWith("http://") || next.startsWith("https://") || next.startsWith("//")) {
       return fallback;
     }
 
-    const allowed = ["index.html", "forum.html", "thread.html", "releases.html", "profile.html", "auth.html", "admin.html"];
-
-    const base = next.split("?")[0].split("#")[0];
-    if (!allowed.includes(base)) return fallback;
-    return next;
+    const clean = toCleanPathAndQuery(next);
+    const parsed = new URL(clean, window.location.href);
+    const allowed = new Set(Object.values(ROUTE_SEGMENTS));
+    const pathname = parsed.pathname.endsWith("/") ? parsed.pathname : `${parsed.pathname}/`;
+    const canonical = APP_BASE_PATH && pathname.startsWith(APP_BASE_PATH)
+      ? pathname.slice(APP_BASE_PATH.length)
+      : pathname;
+    if (!allowed.has(canonical)) return fallback;
+    return `${pathname}${parsed.search}${parsed.hash}`;
   }
 
   function ensurePageNoticeNode() {
@@ -570,9 +574,9 @@
   }
 
   function getCurrentRelativePath() {
-    const file = String(window.location.pathname || "").split("/").pop() || "index.html";
+    const path = String(window.location.pathname || "") || routePath("index");
     const search = String(window.location.search || "");
-    return `${file}${search}`;
+    return `${path}${search}`;
   }
 
   async function ensureActionAccess(api, options) {
@@ -590,7 +594,7 @@
         profile: null,
         displayName: "",
         message: `Please login to ${actionLabel}.`,
-        redirect: `auth.html?next=${encodeURIComponent(nextPath)}`
+        redirect: routePath("auth", `next=${encodeURIComponent(nextPath)}`)
       };
     }
 
@@ -601,7 +605,7 @@
         profile: null,
         displayName: "",
         message: "Please verify your email before continuing.",
-        redirect: "auth.html"
+        redirect: routePath("auth")
       };
     }
 
@@ -615,7 +619,7 @@
         profile,
         displayName: "",
         message: "Set your display name in Profile settings first.",
-        redirect: "profile.html?setup=1"
+        redirect: routePath("profile", "setup=1")
       };
     }
 
@@ -628,7 +632,7 @@
           profile,
           displayName,
           message: "Your account is currently banned from this action.",
-          redirect: "profile.html"
+          redirect: routePath("profile")
         };
       }
     }
@@ -648,18 +652,21 @@
     const nav = document.querySelector("nav.main-nav .nav-inner");
     if (!nav) return;
 
-    const loginLink = nav.querySelector('a[href="auth.html"]');
+    const loginLink = nav.querySelector('a[data-session-link="account"]')
+      || nav.querySelector('a[href="auth.html"]')
+      || nav.querySelector('a[href$="/auth/"]');
     if (!loginLink) return;
+    loginLink.dataset.sessionLink = "account";
 
     const user = await getAuthUser();
     if (refreshId !== navRefreshToken) return;
     const isLoggedIn = Boolean(user);
     const logoutNode = nav.querySelector('[data-session-link="logout"]');
-    const adminLinks = [...nav.querySelectorAll('a[href="admin.html"]')];
+    const adminLinks = [...nav.querySelectorAll('a[href="admin.html"], a[href$="/admin/"]')];
 
     if (!isLoggedIn) {
       loginLink.textContent = "Login";
-      loginLink.href = "auth.html";
+      loginLink.href = routePath("auth");
       if (logoutNode) logoutNode.remove();
       adminLinks.forEach((link) => link.remove());
       document.body.classList.remove("is-admin");
@@ -667,7 +674,7 @@
     }
 
     loginLink.textContent = "Account";
-    loginLink.href = "auth.html";
+    loginLink.href = routePath("auth");
 
     if (!logoutNode) {
       const logout = document.createElement("a");
@@ -683,7 +690,7 @@
         lastKnownUser = null;
         lastKnownUserAt = 0;
         localStorage.removeItem(SESSION_CHECK_KEY);
-        window.location.href = "index.html";
+        window.location.href = routePath("index");
       });
       nav.appendChild(logout);
     }
@@ -695,7 +702,7 @@
     let adminLink = nav.querySelector('[data-session-link="admin"]');
     if (isAdmin && !adminLink) {
       adminLink = document.createElement("a");
-      adminLink.href = "admin.html";
+      adminLink.href = routePath("admin");
       adminLink.dataset.sessionLink = "admin";
       adminLink.className = "admin-only";
       adminLink.textContent = "Admin Panel";
@@ -709,6 +716,90 @@
     if (!isAdmin) {
       adminLinks.forEach((link) => link.remove());
     }
+  }
+
+  const ROUTE_SEGMENTS = {
+    index: "/",
+    auth: "/auth/",
+    forum: "/forum/",
+    thread: "/thread/",
+    releases: "/releases/",
+    profile: "/profile/",
+    admin: "/admin/",
+    faq: "/faq/",
+    privacy: "/privacy/",
+    terms: "/terms/"
+  };
+
+  const FILE_ROUTE_MAP = {
+    "index.html": "index",
+    "auth.html": "auth",
+    "forum.html": "forum",
+    "thread.html": "thread",
+    "releases.html": "releases",
+    "profile.html": "profile",
+    "admin.html": "admin",
+    "faq.html": "faq",
+    "privacy.html": "privacy",
+    "terms.html": "terms"
+  };
+
+  function detectBasePath() {
+    const path = String(window.location.pathname || "");
+    const fileNames = Object.keys(FILE_ROUTE_MAP);
+    for (const fileName of fileNames) {
+      const marker = `/${fileName}`;
+      const idx = path.indexOf(marker);
+      if (idx >= 0) return path.slice(0, idx);
+    }
+    for (const segment of Object.values(ROUTE_SEGMENTS)) {
+      const idx = path.indexOf(segment);
+      if (idx > 0) return path.slice(0, idx);
+    }
+    if (path === "/") return "";
+    if (path.endsWith("/")) return path.slice(0, -1);
+    return "";
+  }
+
+  const APP_BASE_PATH = detectBasePath();
+
+  function withBase(path) {
+    const normalized = String(path || "/").startsWith("/") ? String(path) : `/${String(path)}`;
+    if (!APP_BASE_PATH) return normalized;
+    if (normalized === "/") return `${APP_BASE_PATH}/`;
+    return `${APP_BASE_PATH}${normalized}`;
+  }
+
+  function routePath(routeName, queryLike) {
+    const segment = ROUTE_SEGMENTS[routeName] || ROUTE_SEGMENTS.index;
+    const query = String(queryLike || "").trim();
+    if (!query) return withBase(segment);
+    const suffix = query.startsWith("?") ? query : `?${query}`;
+    return `${withBase(segment)}${suffix}`;
+  }
+
+  function threadLink(threadId) {
+    return routePath("thread", `id=${encodeURIComponent(String(threadId || ""))}`);
+  }
+
+  function toCleanPathAndQuery(rawUrl) {
+    const value = String(rawUrl || "").trim();
+    if (!value) return routePath("index");
+
+    const parsed = new URL(value, window.location.href);
+    const pathname = parsed.pathname;
+    const search = parsed.search || "";
+    const hash = parsed.hash || "";
+    const file = pathname.split("/").pop() || "index.html";
+    const routeName = FILE_ROUTE_MAP[file];
+
+    if (routeName) return `${routePath(routeName)}${search}${hash}`;
+    for (const [name, segment] of Object.entries(ROUTE_SEGMENTS)) {
+      if (pathname.endsWith(segment) || pathname.includes(segment)) {
+        return `${routePath(name)}${search}${hash}`;
+      }
+    }
+    return `${withBase("/")}${search}${hash}`;
   }
 
   async function refreshSessionNav() {
@@ -929,6 +1020,14 @@
     setTheme(getCurrentTheme());
   }
 
+  function applyCleanCurrentUrl() {
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    const clean = toCleanPathAndQuery(current);
+    if (clean !== current) {
+      window.history.replaceState({}, "", clean);
+    }
+  }
+
   window.PollyCommon = {
     SECTION_META,
     escapeHtml,
@@ -972,6 +1071,9 @@
     getCurrentTheme,
     setTheme,
     initKeyboardShortcuts,
+    routePath,
+    threadLink,
+    toCleanPathAndQuery,
     parseMarkdown,
     getBookmarks,
     addBookmark,
@@ -1025,16 +1127,17 @@
 
       if (e.key === "n" && !isInput && e.altKey) {
         e.preventDefault();
-        window.location.href = "forum.html?section=general";
+        window.location.href = routePath("forum", "section=general");
       }
 
       if (e.key === "h" && !isInput && e.altKey) {
         e.preventDefault();
-        window.location.href = "index.html";
+        window.location.href = routePath("index");
       }
     });
   }
 
+  void applyCleanCurrentUrl();
   void applyAdminVisibility();
   void initSessionNav();
   void initThemeToggle();
