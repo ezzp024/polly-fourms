@@ -1,0 +1,29 @@
+Live QA Bot: PASS
+Checks: 19/19 passed
+Base URL: https://ezzp024.github.io/polly-fourms
+
+[PASS] page:https://ezzp024.github.io/polly-fourms/
+  ok
+[PASS] page:https://ezzp024.github.io/polly-fourms/auth.html
+  ok
+[PASS] page:https://ezzp024.github.io/polly-fourms/forum.html?section=software
+  ok
+[PASS] page:https://ezzp024.github.io/polly-fourms/releases.html
+  ok
+[PASS] page:https://ezzp024.github.io/polly-fourms/profile.html
+  ok
+[PASS] page:https://ezzp024.github.io/polly-fourms/admin.html
+  ok
+[PASS] syntax:auth.js
+[PASS] syntax:common.js
+[PASS] syntax:forum-api.js
+[PASS] syntax:forum.js
+[PASS] syntax:thread.js
+[PASS] syntax:admin.js
+[PASS] syntax:profile.js
+[PASS] syntax:home.js
+[PASS] syntax:releases.js
+[PASS] script:test-security.js
+[PASS] script:test-detailed.js
+[PASS] script:test-final.js
+[PASS] script:rls-check.js

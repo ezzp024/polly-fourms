@@ -1,0 +1,132 @@
+{
+  "startedAt": "2026-03-28T14:09:19.380Z",
+  "finishedAt": "2026-03-28T14:09:29.770Z",
+  "supabaseConfigured": true,
+  "liveBaseUrl": "https://ezzp024.github.io/polly-fourms",
+  "totalChecks": 19,
+  "passedChecks": 19,
+  "failedChecks": 0,
+  "overall": "PASS",
+  "checks": [
+    {
+      "name": "page:https://ezzp024.github.io/polly-fourms/",
+      "ok": true,
+      "status": 200,
+      "contains": true,
+      "note": "ok"
+    },
+    {
+      "name": "page:https://ezzp024.github.io/polly-fourms/auth.html",
+      "ok": true,
+      "status": 200,
+      "contains": true,
+      "note": "ok"
+    },
+    {
+      "name": "page:https://ezzp024.github.io/polly-fourms/forum.html?section=software",
+      "ok": true,
+      "status": 200,
+      "contains": true,
+      "note": "ok"
+    },
+    {
+      "name": "page:https://ezzp024.github.io/polly-fourms/releases.html",
+      "ok": true,
+      "status": 200,
+      "contains": true,
+      "note": "ok"
+    },
+    {
+      "name": "page:https://ezzp024.github.io/polly-fourms/profile.html",
+      "ok": true,
+      "status": 200,
+      "contains": true,
+      "note": "ok"
+    },
+    {
+      "name": "page:https://ezzp024.github.io/polly-fourms/admin.html",
+      "ok": true,
+      "status": 200,
+      "contains": true,
+      "note": "ok"
+    },
+    {
+      "name": "syntax:auth.js",
+      "ok": true,
+      "code": 0,
+      "output": ""
+    },
+    {
+      "name": "syntax:common.js",
+      "ok": true,
+      "code": 0,
+      "output": ""
+    },
+    {
+      "name": "syntax:forum-api.js",
+      "ok": true,
+      "code": 0,
+      "output": ""
+    },
+    {
+      "name": "syntax:forum.js",
+      "ok": true,
+      "code": 0,
+      "output": ""
+    },
+    {
+      "name": "syntax:thread.js",
+      "ok": true,
+      "code": 0,
+      "output": ""
+    },
+    {
+      "name": "syntax:admin.js",
+      "ok": true,
+      "code": 0,
+      "output": ""
+    },
+    {
+      "name": "syntax:profile.js",
+      "ok": true,
+      "code": 0,
+      "output": ""
+    },
+    {
+      "name": "syntax:home.js",
+      "ok": true,
+      "code": 0,
+      "output": ""
+    },
+    {
+      "name": "syntax:releases.js",
+      "ok": true,
+      "code": 0,
+      "output": ""
+    },
+    {
+      "name": "script:test-security.js",
+      "ok": true,
+      "code": 0,
+      "output": "Testing security...\n\n1. Read reports: 200 SECURE\nTesting with post: 7f948aed-68bd-4796-bcdc-5698aa84d781\n2. Edit others post: 204 SECURE\n3. Delete others post: 204 SECURE\n4. Delete others comment: 204 SECURE\n\n=== DONE ==="
+    },
+    {
+      "name": "script:test-detailed.js",
+      "ok": true,
+      "code": 0,
+      "output": "=== DETAILED SECURITY TEST ===\n\nLogged in as: 5e7d65eb-bb78-4319-addb-8fddd67c6787\n\n1. REPORTS READ:\n   Status: 200\n   Data count: 0\n   SECURE: YES\n\n2. EDIT OTHERS POST:\n   Post ID: 7f948aed-68bd-4796-bcdc-5698aa84d781\n   Original title: ReplyDeep 1774693716335\n   Patch status: 204\n   Title after patch: ReplyDeep 1774693716335\n   Was changed: NO - secure\n\n3. DELETE OTHERS COMMENT:\n   Comment ID: c576dfc9-5c01-4cc6-9da4-dc3bd179e0af\n   Delete status: 204\n   Still exists: true\n   SECURE: YES\n\n=== TEST COMPLETE ==="
+    },
+    {
+      "name": "script:test-final.js",
+      "ok": true,
+      "code": 0,
+      "output": "=== FINAL SECURITY VERIFICATION ===\n\n1. REPORTS for non-admin:\n   Result: 0 rows (should be 0)\n   Status: PASS - SECURE\n\n2. REPORTS after creating one:\n   User can see: 0 rows\n   Status: PASS - SECURE (empty even after creating)\n\n3. EDIT OTHERS POST:\n   Original: PostDeployCreate 1774692975244\n   After patch: PostDeployCreate 1774692975244\n   Changed: NO\n   Status: PASS - SECURE\n\n4. DELETE OTHERS COMMENT:\n   Still exists: true\n   Status: PASS - SECURE\n\n=== SECURITY TEST COMPLETE ==="
+    },
+    {
+      "name": "script:rls-check.js",
+      "ok": true,
+      "code": 0,
+      "output": "Project: https://viecsadnnuzgjictrbnc.supabase.co\nRunning anonymous checks...\n[PASS] Anon cannot create post -> status=400\n[PASS] Anon cannot update post -> status=200\n[PASS] Anon cannot read reports -> status=200\nSkipping non-admin checks (set NON_ADMIN_EMAIL and NON_ADMIN_PASSWORD).\n\nOverall: PASS"
+    }
+  ]
+}
