@@ -5,10 +5,13 @@
 DROP POLICY IF EXISTS "Public read posts" ON posts;
 DROP POLICY IF EXISTS "Public read all posts" ON posts;
 DROP POLICY IF EXISTS "Authenticated create posts" ON posts;
+DROP POLICY IF EXISTS "Auth create posts" ON posts;
 DROP POLICY IF EXISTS "Owner update posts" ON posts;
 DROP POLICY IF EXISTS "Owner delete posts" ON posts;
 DROP POLICY IF EXISTS "Admin update posts" ON posts;
 DROP POLICY IF EXISTS "Admin delete posts" ON posts;
+DROP POLICY IF EXISTS "Owner admin update posts" ON posts;
+DROP POLICY IF EXISTS "Owner admin delete posts" ON posts;
 
 -- Public can read non-hidden posts
 CREATE POLICY "Public read posts" ON posts FOR SELECT 
