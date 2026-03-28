@@ -27,12 +27,73 @@
   const accountStatus = document.getElementById("accountStatus");
   const accountForm = document.getElementById("accountForm");
   const accountDisplayName = document.getElementById("accountDisplayName");
+  const friendActionStatus = document.getElementById("friendActionStatus");
+  const addFriendBtn = document.getElementById("addFriendBtn");
+  const removeFriendBtn = document.getElementById("removeFriendBtn");
+  const myFriendsList = document.getElementById("myFriendsList");
 
   const query = new URLSearchParams(window.location.search);
   const targetHandle = toHandle(query.get("user") || "");
 
   let allMembers = [];
   let canModerate = false;
+  let selectedMember = null;
+  let myProfile = null;
+  let myFriends = [];
+
+  function setFriendStatus(text) {
+    if (friendActionStatus) friendActionStatus.textContent = text;
+  }
+
+  function renderMyFriends() {
+    if (!myFriendsList) return;
+    myFriendsList.innerHTML = myFriends.length
+      ? myFriends
+          .map((name) => `<article class="stack-item"><strong><a href="${profileLink(name)}">${escapeHtml(name)}</a></strong></article>`)
+          .join("")
+      : '<p class="muted">No friends yet.</p>';
+  }
+
+  function updateFriendControls() {
+    const me = String(myProfile?.display_name || "").trim();
+    const target = String(selectedMember?.displayName || "").trim();
+    const ready = Boolean(me);
+    const targetExists = Boolean(target);
+    const isSelf = ready && targetExists && me.toLowerCase() === target.toLowerCase();
+    const isFriend = targetExists && myFriends.some((name) => name.toLowerCase() === target.toLowerCase());
+
+    if (addFriendBtn) addFriendBtn.disabled = !ready || !targetExists || isSelf || isFriend;
+    if (removeFriendBtn) removeFriendBtn.disabled = !ready || !targetExists || isSelf || !isFriend;
+
+    if (!ready) {
+      setFriendStatus("Login and set your display name to manage friends.");
+      return;
+    }
+    if (!targetExists) {
+      setFriendStatus("Choose a member profile to manage friend status.");
+      return;
+    }
+    if (isSelf) {
+      setFriendStatus("This is your profile.");
+      return;
+    }
+    setFriendStatus(isFriend ? `You and ${target} are friends.` : `You are not friends with ${target}.`);
+  }
+
+  async function refreshFriends() {
+    try {
+      myProfile = await window.PollyCommon.fetchMyProfile();
+      if (myProfile && myProfile.display_name) {
+        myFriends = await api.getMyFriends();
+      } else {
+        myFriends = [];
+      }
+    } catch {
+      myFriends = [];
+    }
+    renderMyFriends();
+    updateFriendControls();
+  }
 
   async function loadAccountSettings() {
     const user = await window.PollyCommon.getAuthUser();
@@ -76,13 +137,17 @@
 
   function renderProfile(member) {
     if (!member) {
+      selectedMember = null;
       profileName.textContent = "Member not found";
       profileMeta.textContent = "Try selecting a member from the directory list.";
       profileCard.innerHTML = "";
       recentThreads.innerHTML = '<p class="muted">No threads.</p>';
       recentReplies.innerHTML = '<p class="muted">No replies.</p>';
+      updateFriendControls();
       return;
     }
+
+    selectedMember = member;
 
     const role = member.rank;
     profileName.textContent = member.displayName;
@@ -125,6 +190,8 @@
           )
           .join("")
       : '<p class="muted">No replies yet.</p>';
+
+    updateFriendControls();
   }
 
   try {
@@ -147,6 +214,8 @@
     accountStatus.textContent = "Could not load account settings.";
   }
 
+  await refreshFriends();
+
   memberSearch.addEventListener("input", () => {
     const queryText = memberSearch.value.trim().toLowerCase();
     const filtered = allMembers.filter((member) => member.displayName.toLowerCase().includes(queryText));
@@ -167,6 +236,7 @@
       const statsMap = buildMemberStats(posts, comments);
       allMembers = [...statsMap.values()].sort((a, b) => b.score - a.score || a.displayName.localeCompare(b.displayName));
       renderDirectory(allMembers);
+      await refreshFriends();
       const selected = statsMap.get(toHandle(value));
       if (selected) {
         renderProfile(selected);
@@ -175,6 +245,34 @@
       accountStatus.textContent = `Could not save display name: ${escapeHtml(error.message || String(error))}`;
     }
   });
+
+  if (addFriendBtn) {
+    addFriendBtn.addEventListener("click", async () => {
+      const target = String(selectedMember?.displayName || "").trim();
+      if (!target) return;
+      try {
+        await api.addFriend(target);
+        await refreshFriends();
+        setFriendStatus(`Added ${target} as friend.`);
+      } catch (error) {
+        setFriendStatus(`Could not add friend: ${error.message || String(error)}`);
+      }
+    });
+  }
+
+  if (removeFriendBtn) {
+    removeFriendBtn.addEventListener("click", async () => {
+      const target = String(selectedMember?.displayName || "").trim();
+      if (!target) return;
+      try {
+        await api.removeFriend(target);
+        await refreshFriends();
+        setFriendStatus(`Removed ${target} from friends.`);
+      } catch (error) {
+        setFriendStatus(`Could not remove friend: ${error.message || String(error)}`);
+      }
+    });
+  }
 
   const exportDataBtn = document.getElementById("exportDataBtn");
   const deleteAccountBtn = document.getElementById("deleteAccountBtn");

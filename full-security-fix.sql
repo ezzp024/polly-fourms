@@ -76,4 +76,37 @@ CREATE POLICY "Admin read bans" ON banned_users FOR SELECT TO authenticated USIN
 
 CREATE POLICY "Admin write bans" ON banned_users FOR ALL TO authenticated USING (public.is_admin() = true) WITH CHECK (public.is_admin() = true);
 
+-- Friendships
+CREATE TABLE IF NOT EXISTS friendships (
+  id uuid primary key default gen_random_uuid(),
+  requester_user_id uuid not null references auth.users(id) on delete cascade,
+  requester_name text not null,
+  addressee_user_id uuid not null references auth.users(id) on delete cascade,
+  addressee_name text not null,
+  status text not null default 'accepted',
+  created_at timestamptz not null default now(),
+  check (requester_user_id <> addressee_user_id)
+);
+
+ALTER TABLE friendships ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Read own friendships" ON friendships;
+DROP POLICY IF EXISTS "Create own friendships" ON friendships;
+DROP POLICY IF EXISTS "Delete own friendships" ON friendships;
+
+CREATE POLICY "Read own friendships"
+ON friendships FOR SELECT
+TO authenticated
+USING (requester_user_id = auth.uid() OR addressee_user_id = auth.uid() OR public.is_admin() = true);
+
+CREATE POLICY "Create own friendships"
+ON friendships FOR INSERT
+TO authenticated
+WITH CHECK (requester_user_id = auth.uid() OR addressee_user_id = auth.uid());
+
+CREATE POLICY "Delete own friendships"
+ON friendships FOR DELETE
+TO authenticated
+USING (requester_user_id = auth.uid() OR addressee_user_id = auth.uid() OR public.is_admin() = true);
+
 SELECT 'All policies replaced!' as result;

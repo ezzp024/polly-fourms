@@ -1,12 +1,12 @@
 {
-  "startedAt": "2026-03-28T14:09:19.380Z",
-  "finishedAt": "2026-03-28T14:09:29.770Z",
+  "startedAt": "2026-03-28T14:26:45.294Z",
+  "finishedAt": "2026-03-28T14:27:22.130Z",
   "supabaseConfigured": true,
   "liveBaseUrl": "https://ezzp024.github.io/polly-fourms",
-  "totalChecks": 19,
-  "passedChecks": 19,
-  "failedChecks": 0,
-  "overall": "PASS",
+  "totalChecks": 41,
+  "passedChecks": 38,
+  "failedChecks": 3,
+  "overall": "FAIL",
   "checks": [
     {
       "name": "page:https://ezzp024.github.io/polly-fourms/",
@@ -127,6 +127,136 @@
       "ok": true,
       "code": 0,
       "output": "Project: https://viecsadnnuzgjictrbnc.supabase.co\nRunning anonymous checks...\n[PASS] Anon cannot create post -> status=400\n[PASS] Anon cannot update post -> status=200\n[PASS] Anon cannot read reports -> status=200\nSkipping non-admin checks (set NON_ADMIN_EMAIL and NON_ADMIN_PASSWORD).\n\nOverall: PASS"
+    },
+    {
+      "name": "auth:signup-temp-user",
+      "ok": true,
+      "status": 429,
+      "note": "signup blocked by Supabase email rate limit (service protection active)"
+    },
+    {
+      "name": "auth:login-temp-user",
+      "ok": true,
+      "status": 400,
+      "note": "temp login blocked (likely email confirmation required)"
+    },
+    {
+      "name": "auth:login-non-admin",
+      "ok": true,
+      "status": 200,
+      "note": "non-admin login succeeded"
+    },
+    {
+      "name": "auth:resolve-non-admin-user-id",
+      "ok": true,
+      "note": "user id 5e7d65eb-bb78-4319-addb-8fddd67c6787"
+    },
+    {
+      "name": "profile:upsert-non-admin",
+      "ok": true,
+      "status": 200,
+      "note": "profile upsert ok"
+    },
+    {
+      "name": "forum:create-post-non-admin",
+      "ok": true,
+      "status": 201,
+      "note": "post id 995bdfed-b60c-460f-817c-a24eecf74f7b"
+    },
+    {
+      "name": "forum:create-comment-non-admin",
+      "ok": true,
+      "status": 201,
+      "note": "comment created"
+    },
+    {
+      "name": "forum:create-report-non-admin",
+      "ok": true,
+      "status": 201,
+      "note": "report created"
+    },
+    {
+      "name": "security:non-admin-cannot-read-reports",
+      "ok": true,
+      "status": 200,
+      "note": "reports hidden from non-admin"
+    },
+    {
+      "name": "auth:login-admin",
+      "ok": true,
+      "status": 200,
+      "note": "admin login succeeded"
+    },
+    {
+      "name": "profile:upsert-admin",
+      "ok": true,
+      "status": 200,
+      "note": "admin profile upsert ok"
+    },
+    {
+      "name": "auth:admin-rpc-is_admin",
+      "ok": true,
+      "status": 200,
+      "note": "is_admin returned true"
+    },
+    {
+      "name": "admin:can-read-reports",
+      "ok": true,
+      "status": 200,
+      "note": "rows=13"
+    },
+    {
+      "name": "admin:resolve-report",
+      "ok": true,
+      "status": 204,
+      "note": "report resolved"
+    },
+    {
+      "name": "admin:moderate-post-hide-lock",
+      "ok": true,
+      "status": 204,
+      "note": "moderation patch ok"
+    },
+    {
+      "name": "admin:moderate-post-unhide-unlock",
+      "ok": true,
+      "status": 204,
+      "note": "unhide/unlock ok"
+    },
+    {
+      "name": "admin:ban-user",
+      "ok": true,
+      "status": 201,
+      "note": "ban id 4603289e-ff81-4bf1-80ad-eb98157280bf"
+    },
+    {
+      "name": "admin:unban-user",
+      "ok": true,
+      "status": 204,
+      "note": "unban ok"
+    },
+    {
+      "name": "admin:cleanup-delete-created-post",
+      "ok": true,
+      "status": 204,
+      "note": "cleanup ok"
+    },
+    {
+      "name": "feature:add-friend",
+      "ok": false,
+      "status": 404,
+      "note": "{\"code\":\"PGRST205\",\"details\":null,\"hint\":null,\"message\":\"Could not find the table 'public.friendships' in the schema cache\"}"
+    },
+    {
+      "name": "feature:list-friends-after-add",
+      "ok": false,
+      "note": "friend not found after add"
+    },
+    {
+      "name": "feature:remove-friend",
+      "ok": false,
+      "status": 404,
+      "note": "{\"code\":\"PGRST205\",\"details\":null,\"hint\":null,\"message\":\"Could not find the table 'public.friendships' in the schema cache\"}"
     }
   ]
 }

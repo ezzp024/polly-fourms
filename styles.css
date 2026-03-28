@@ -948,6 +948,16 @@ td .bulk-checkbox {
   background: linear-gradient(#d55, #b44);
 }
 
+.btn-secondary {
+  background: linear-gradient(#f4f6fa, #e4e9f3);
+  border-color: #bac4d8;
+  color: #22314d;
+}
+
+.btn-secondary:hover {
+  background: linear-gradient(#f8f9fc, #edf1f8);
+}
+
 @media print {
   .top-strip,
   .main-nav,

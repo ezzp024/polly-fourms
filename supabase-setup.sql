@@ -93,6 +93,22 @@ create table if not exists public.banned_users (
 
 alter table public.banned_users add column if not exists user_id uuid references auth.users(id) on delete cascade;
 
+create table if not exists public.friendships (
+  id uuid primary key default gen_random_uuid(),
+  requester_user_id uuid not null references auth.users(id) on delete cascade,
+  requester_name text not null check (char_length(requester_name) between 2 and 24),
+  addressee_user_id uuid not null references auth.users(id) on delete cascade,
+  addressee_name text not null check (char_length(addressee_name) between 2 and 24),
+  status text not null default 'accepted' check (status in ('accepted')),
+  created_at timestamptz not null default now(),
+  check (requester_user_id <> addressee_user_id)
+);
+
+create unique index if not exists idx_friendships_pair_unique on public.friendships (
+  least(requester_user_id::text, addressee_user_id::text),
+  greatest(requester_user_id::text, addressee_user_id::text)
+);
+
 do $$
 declare r record;
 begin
@@ -100,7 +116,7 @@ begin
     select schemaname, tablename, policyname
     from pg_policies
     where schemaname = 'public'
-      and tablename in ('profiles','posts','comments','reports','banned_users','moderation_logs')
+      and tablename in ('profiles','posts','comments','reports','banned_users','moderation_logs','friendships')
   loop
     execute format('drop policy if exists %I on %I.%I', r.policyname, r.schemaname, r.tablename);
   end loop;
@@ -138,6 +154,8 @@ create index if not exists idx_comments_author_user_id on public.comments (autho
 create index if not exists idx_reports_post_id on public.reports (post_id);
 create index if not exists idx_banned_users_user_id_active on public.banned_users (user_id, active);
 create index if not exists idx_banned_users_nickname_active on public.banned_users (nickname, active);
+create index if not exists idx_friendships_requester on public.friendships (requester_user_id);
+create index if not exists idx_friendships_addressee on public.friendships (addressee_user_id);
 
 alter table public.profiles enable row level security;
 alter table public.posts enable row level security;
@@ -145,6 +163,7 @@ alter table public.comments enable row level security;
 alter table public.reports enable row level security;
 alter table public.banned_users enable row level security;
 alter table public.moderation_logs enable row level security;
+alter table public.friendships enable row level security;
 
 create or replace function public.enforce_action_rate_limit_trigger()
 returns trigger
@@ -505,3 +524,32 @@ create policy "Admin write moderation logs"
 on public.moderation_logs for insert
 to authenticated
 with check (public.is_admin());
+
+create policy "Read own friendships"
+on public.friendships for select
+to authenticated
+using (requester_user_id = auth.uid() or addressee_user_id = auth.uid() or public.is_admin());
+
+create policy "Create own friendships"
+on public.friendships for insert
+to authenticated
+with check (
+  (requester_user_id = auth.uid() or addressee_user_id = auth.uid())
+  and exists (
+    select 1
+    from public.profiles p1
+    where p1.user_id = requester_user_id
+      and p1.display_name = requester_name
+  )
+  and exists (
+    select 1
+    from public.profiles p2
+    where p2.user_id = addressee_user_id
+      and p2.display_name = addressee_name
+  )
+);
+
+create policy "Delete own friendships"
+on public.friendships for delete
+to authenticated
+using (requester_user_id = auth.uid() or addressee_user_id = auth.uid() or public.is_admin());

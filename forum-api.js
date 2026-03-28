@@ -90,6 +90,7 @@
       this.commentKey = "polly_comments";
       this.reportKey = "polly_reports";
       this.banKey = "polly_bans";
+      this.friendKey = "polly_friendships";
     }
 
     _load(key) {
@@ -125,6 +126,70 @@
 
     async getBannedUsers() {
       return this._load(this.banKey);
+    }
+
+    async getMyFriends() {
+      const me = String(window.PollyCommon?.getNickname?.() || "").trim();
+      if (!me) return [];
+      const meNorm = me.toLowerCase();
+      const rows = this._load(this.friendKey).filter((row) => {
+        if (row.status && row.status !== "accepted") return false;
+        const a = String(row.requester_name || "").trim().toLowerCase();
+        const b = String(row.addressee_name || "").trim().toLowerCase();
+        return a === meNorm || b === meNorm;
+      });
+      const names = new Set();
+      for (const row of rows) {
+        const a = String(row.requester_name || "").trim();
+        const b = String(row.addressee_name || "").trim();
+        const aNorm = a.toLowerCase();
+        const bNorm = b.toLowerCase();
+        if (aNorm === meNorm && b) names.add(b);
+        if (bNorm === meNorm && a) names.add(a);
+      }
+      return [...names].sort((x, y) => x.localeCompare(y));
+    }
+
+    async addFriend(friendName) {
+      const me = String(window.PollyCommon?.getNickname?.() || "").trim();
+      const target = String(friendName || "").trim();
+      if (!me) throw new Error("Set your display name first.");
+      if (!target) throw new Error("Friend name is required.");
+      if (me.toLowerCase() === target.toLowerCase()) throw new Error("You cannot add yourself.");
+
+      const rows = this._load(this.friendKey);
+      const meNorm = me.toLowerCase();
+      const targetNorm = target.toLowerCase();
+      const exists = rows.some((row) => {
+        const a = String(row.requester_name || "").trim().toLowerCase();
+        const b = String(row.addressee_name || "").trim().toLowerCase();
+        return (a === meNorm && b === targetNorm) || (a === targetNorm && b === meNorm);
+      });
+      if (exists) throw new Error("Already friends with this member.");
+
+      rows.push({
+        id: crypto.randomUUID(),
+        requester_name: me,
+        addressee_name: target,
+        status: "accepted",
+        created_at: new Date().toISOString()
+      });
+      this._save(this.friendKey, rows);
+    }
+
+    async removeFriend(friendName) {
+      const me = String(window.PollyCommon?.getNickname?.() || "").trim();
+      const target = String(friendName || "").trim();
+      if (!me || !target) return;
+
+      const meNorm = me.toLowerCase();
+      const targetNorm = target.toLowerCase();
+      const rows = this._load(this.friendKey).filter((row) => {
+        const a = String(row.requester_name || "").trim().toLowerCase();
+        const b = String(row.addressee_name || "").trim().toLowerCase();
+        return !((a === meNorm && b === targetNorm) || (a === targetNorm && b === meNorm));
+      });
+      this._save(this.friendKey, rows);
     }
 
     async isNicknameBanned(name) {
@@ -376,6 +441,105 @@
         .limit(2000);
       if (error) throw error;
       return data || [];
+    }
+
+    async getMyFriends() {
+      const user = await this.getCurrentUser();
+      if (!user) return [];
+
+      const { data, error } = await this.client
+        .from("friendships")
+        .select("requester_user_id, requester_name, addressee_user_id, addressee_name, status")
+        .or(`requester_user_id.eq.${user.id},addressee_user_id.eq.${user.id}`)
+        .eq("status", "accepted")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw new Error(friendlyError(error, "Could not load friends."));
+
+      const names = new Set();
+      for (const row of data || []) {
+        if (row.requester_user_id === user.id && row.addressee_name) names.add(String(row.addressee_name));
+        if (row.addressee_user_id === user.id && row.requester_name) names.add(String(row.requester_name));
+      }
+      return [...names].sort((a, b) => a.localeCompare(b));
+    }
+
+    async addFriend(friendName) {
+      const user = await this.getCurrentUser();
+      if (!user) throw new Error("Please login first.");
+
+      const profile = await this.getMyProfile();
+      if (!profile || !profile.display_name) {
+        throw new Error("Please set your display name in profile settings first.");
+      }
+
+      const targetName = String(friendName || "").trim().slice(0, 24);
+      if (!targetName) throw new Error("Friend name is required.");
+      if (profile.display_name.toLowerCase() === targetName.toLowerCase()) {
+        throw new Error("You cannot add yourself.");
+      }
+
+      const { data: targetProfile, error: profileErr } = await this.client
+        .from("profiles")
+        .select("user_id, display_name")
+        .ilike("display_name", targetName)
+        .maybeSingle();
+      if (profileErr || !targetProfile || !targetProfile.user_id) {
+        throw new Error("Member not found.");
+      }
+
+      const idA = String(user.id);
+      const idB = String(targetProfile.user_id);
+      const firstIsMe = idA < idB;
+
+      const requester_user_id = firstIsMe ? idA : idB;
+      const requester_name = firstIsMe ? profile.display_name : targetProfile.display_name;
+      const addressee_user_id = firstIsMe ? idB : idA;
+      const addressee_name = firstIsMe ? targetProfile.display_name : profile.display_name;
+
+      const { data: existingRows, error: existingErr } = await this.client
+        .from("friendships")
+        .select("id")
+        .or(`and(requester_user_id.eq.${idA},addressee_user_id.eq.${idB}),and(requester_user_id.eq.${idB},addressee_user_id.eq.${idA})`)
+        .limit(1);
+      if (existingErr) throw new Error(friendlyError(existingErr, "Could not check friendship."));
+      if ((existingRows || []).length > 0) {
+        throw new Error("Already friends with this member.");
+      }
+
+      const { error } = await this.client.from("friendships").insert({
+        requester_user_id,
+        requester_name,
+        addressee_user_id,
+        addressee_name,
+        status: "accepted"
+      });
+      if (error) throw new Error(friendlyError(error, "Could not add friend."));
+    }
+
+    async removeFriend(friendName) {
+      const user = await this.getCurrentUser();
+      if (!user) throw new Error("Please login first.");
+
+      const targetName = String(friendName || "").trim().slice(0, 24);
+      if (!targetName) throw new Error("Friend name is required.");
+
+      const { data: targetProfile, error: profileErr } = await this.client
+        .from("profiles")
+        .select("user_id")
+        .ilike("display_name", targetName)
+        .maybeSingle();
+      if (profileErr || !targetProfile || !targetProfile.user_id) {
+        throw new Error("Member not found.");
+      }
+
+      const idA = String(user.id);
+      const idB = String(targetProfile.user_id);
+      const { error } = await this.client
+        .from("friendships")
+        .delete()
+        .or(`and(requester_user_id.eq.${idA},addressee_user_id.eq.${idB}),and(requester_user_id.eq.${idB},addressee_user_id.eq.${idA})`);
+      if (error) throw new Error(friendlyError(error, "Could not remove friend."));
     }
 
     async isNicknameBanned(name) {

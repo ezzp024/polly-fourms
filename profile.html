@@ -55,6 +55,15 @@
       <div class="profile-card" id="profileCard"></div>
 
       <div class="compose-box">
+        <h2>Friend Actions</h2>
+        <p class="muted" id="friendActionStatus">Login and set your display name to manage friends.</p>
+        <div class="account-actions">
+          <button type="button" id="addFriendBtn">Add Friend</button>
+          <button type="button" id="removeFriendBtn" class="btn-secondary">Remove Friend</button>
+        </div>
+      </div>
+
+      <div class="compose-box">
         <h2>My Account Settings</h2>
         <p class="muted" id="accountStatus">Login and set your display name for posting.</p>
         <form id="accountForm" class="row-fields" autocomplete="off">
@@ -80,6 +89,11 @@
     </section>
 
     <aside class="sidebar">
+      <section class="panel mini-panel">
+        <h2>My Friends</h2>
+        <div id="myFriendsList" class="stack-list"></div>
+      </section>
+
       <section class="panel mini-panel">
         <h2>Member Directory</h2>
         <input id="memberSearch" type="search" placeholder="Search member..." />

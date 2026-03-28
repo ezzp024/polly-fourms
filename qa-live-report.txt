@@ -1,5 +1,5 @@
-Live QA Bot: PASS
-Checks: 19/19 passed
+Live QA Bot: FAIL
+Checks: 38/41 passed
 Base URL: https://ezzp024.github.io/polly-fourms
 
 [PASS] page:https://ezzp024.github.io/polly-fourms/
@@ -27,3 +27,47 @@ Base URL: https://ezzp024.github.io/polly-fourms
 [PASS] script:test-detailed.js
 [PASS] script:test-final.js
 [PASS] script:rls-check.js
+[PASS] auth:signup-temp-user
+  signup blocked by Supabase email rate limit (service protection active)
+[PASS] auth:login-temp-user
+  temp login blocked (likely email confirmation required)
+[PASS] auth:login-non-admin
+  non-admin login succeeded
+[PASS] auth:resolve-non-admin-user-id
+  user id 5e7d65eb-bb78-4319-addb-8fddd67c6787
+[PASS] profile:upsert-non-admin
+  profile upsert ok
+[PASS] forum:create-post-non-admin
+  post id 995bdfed-b60c-460f-817c-a24eecf74f7b
+[PASS] forum:create-comment-non-admin
+  comment created
+[PASS] forum:create-report-non-admin
+  report created
+[PASS] security:non-admin-cannot-read-reports
+  reports hidden from non-admin
+[PASS] auth:login-admin
+  admin login succeeded
+[PASS] profile:upsert-admin
+  admin profile upsert ok
+[PASS] auth:admin-rpc-is_admin
+  is_admin returned true
+[PASS] admin:can-read-reports
+  rows=13
+[PASS] admin:resolve-report
+  report resolved
+[PASS] admin:moderate-post-hide-lock
+  moderation patch ok
+[PASS] admin:moderate-post-unhide-unlock
+  unhide/unlock ok
+[PASS] admin:ban-user
+  ban id 4603289e-ff81-4bf1-80ad-eb98157280bf
+[PASS] admin:unban-user
+  unban ok
+[PASS] admin:cleanup-delete-created-post
+  cleanup ok
+[FAIL] feature:add-friend
+  {"code":"PGRST205","details":null,"hint":null,"message":"Could not find the table 'public.friendships' in the schema cache"}
+[FAIL] feature:list-friends-after-add
+  friend not found after add
+[FAIL] feature:remove-friend
+  {"code":"PGRST205","details":null,"hint":null,"message":"Could not find the table 'public.friendships' in the schema cache"}
