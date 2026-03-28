@@ -36,9 +36,11 @@
     document.body.classList.add("is-moderator");
   }
 
-  if (!id) {
+  const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+
+  if (!id || !isUuid(id)) {
     threadTitle.textContent = "Thread not found";
-    threadPost.innerHTML = '<p class="muted">Missing thread id in URL.</p>';
+    threadPost.innerHTML = '<p class="muted">Invalid or missing thread id in URL.</p>';
     replyForm.style.display = "none";
     return;
   }
