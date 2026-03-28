@@ -37,8 +37,13 @@ USING (auth.uid() = author_user_id OR public.is_admin() = true);
 -- Comments policies
 DROP POLICY IF EXISTS "Public read comments" ON comments;
 DROP POLICY IF EXISTS "Authenticated insert comments" ON comments;
+DROP POLICY IF EXISTS "Auth create comments" ON comments;
 DROP POLICY IF EXISTS "Owner update comments" ON comments;
 DROP POLICY IF EXISTS "Owner delete comments" ON comments;
+DROP POLICY IF EXISTS "Owner can update own comments" ON comments;
+DROP POLICY IF EXISTS "Owner can delete own comments" ON comments;
+DROP POLICY IF EXISTS "Owner can update own posts" ON comments;
+DROP POLICY IF EXISTS "Owner can delete own posts" ON comments;
 
 CREATE POLICY "Public read comments" ON comments FOR SELECT TO anon, authenticated USING (true);
 
@@ -50,8 +55,12 @@ CREATE POLICY "Owner delete comments" ON comments FOR DELETE TO authenticated US
 
 -- Reports - admin only
 DROP POLICY IF EXISTS "Authenticated create reports" ON reports;
+DROP POLICY IF EXISTS "Auth create reports" ON reports;
 DROP POLICY IF EXISTS "Admin read reports" ON reports;
 DROP POLICY IF EXISTS "Admin update reports" ON reports;
+DROP POLICY IF EXISTS "Reports insert for auth" ON reports;
+DROP POLICY IF EXISTS "Reports read admin only" ON reports;
+DROP POLICY IF EXISTS "Reports update admin only" ON reports;
 
 CREATE POLICY "Auth create reports" ON reports FOR INSERT TO authenticated WITH CHECK (auth.uid() = reporter_user_id);
 
