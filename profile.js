@@ -182,16 +182,24 @@
   if (exportDataBtn) {
     exportDataBtn.addEventListener("click", async () => {
       const user = await window.PollyCommon.getAuthUser();
-      if (!user) {
-        alert("Please login first.");
+      const profile = await window.PollyCommon.fetchMyProfile();
+      
+      if (!user && !profile) {
+        alert("Please login or set a display name first.");
         return;
       }
 
       try {
         const [allPosts, allComments] = await Promise.all([api.getPosts(), api.getComments()]);
-        const myPosts = allPosts.filter((p) => p.author_user_id === user.id);
-        const myComments = allComments.filter((c) => c.author_user_id === user.id);
-        const profile = await window.PollyCommon.fetchMyProfile();
+        const displayName = profile?.display_name || "";
+        const myPosts = allPosts.filter((p) => 
+          (user && p.author_user_id === user.id) || 
+          (!user && p.author_name === displayName)
+        );
+        const myComments = allComments.filter((c) => 
+          (user && c.author_user_id === user.id) || 
+          (!user && c.author_name === displayName)
+        );
 
         const exportData = {
           exportedAt: new Date().toISOString(),

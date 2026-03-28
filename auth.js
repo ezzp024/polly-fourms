@@ -34,7 +34,12 @@
     return new URLSearchParams(raw);
   }
 
+  const AUTH_TAB_KEY = "polly_auth_tab";
+
   function showTab(tabName) {
+    try {
+      localStorage.setItem(AUTH_TAB_KEY, tabName);
+    } catch {}
     loginSection.classList.toggle("hidden-block", tabName !== "login");
     registerSection.classList.toggle("hidden-block", tabName !== "register");
     resendSection.classList.toggle("hidden-block", tabName !== "resend");
@@ -48,6 +53,16 @@
     } else if (tabName === "resend") {
       statusEl.textContent = "Resend verification email.";
     }
+  }
+
+  function loadSavedTab() {
+    try {
+      const saved = localStorage.getItem(AUTH_TAB_KEY);
+      if (saved === "login" || saved === "register" || saved === "resend") {
+        return saved;
+      }
+    } catch {}
+    return "login";
   }
 
   authTabs.forEach(tab => {
@@ -72,6 +87,8 @@
     statusEl.textContent = "Supabase is not configured yet.";
     return;
   }
+
+  showTab(loadSavedTab());
 
   if (!allowRegistration && registerSection) {
     registerSection.style.display = "none";

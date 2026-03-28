@@ -13,7 +13,7 @@ DROP POLICY IF EXISTS "Admin delete posts" ON posts;
 -- Public can read non-hidden posts
 CREATE POLICY "Public read posts" ON posts FOR SELECT 
 TO anon, authenticated 
-USING (is_hidden = false OR auth.uid() = author_user_id OR is_admin() = true);
+USING (is_hidden = false OR auth.uid() = author_user_id OR public.is_admin() = true);
 
 -- Auth users can create posts
 CREATE POLICY "Auth create posts" ON posts FOR INSERT 
@@ -23,13 +23,13 @@ WITH CHECK (auth.uid() = author_user_id);
 -- Owner or admin can update
 CREATE POLICY "Owner admin update posts" ON posts FOR UPDATE 
 TO authenticated 
-USING (auth.uid() = author_user_id OR is_admin() = true) 
-WITH CHECK (auth.uid() = author_user_id OR is_admin() = true);
+USING (auth.uid() = author_user_id OR public.is_admin() = true) 
+WITH CHECK (auth.uid() = author_user_id OR public.is_admin() = true);
 
 -- Owner or admin can delete
 CREATE POLICY "Owner admin delete posts" ON posts FOR DELETE 
 TO authenticated 
-USING (auth.uid() = author_user_id OR is_admin() = true);
+USING (auth.uid() = author_user_id OR public.is_admin() = true);
 
 -- Comments policies
 DROP POLICY IF EXISTS "Public read comments" ON comments;
@@ -52,16 +52,16 @@ DROP POLICY IF EXISTS "Admin update reports" ON reports;
 
 CREATE POLICY "Auth create reports" ON reports FOR INSERT TO authenticated WITH CHECK (auth.uid() = reporter_user_id);
 
-CREATE POLICY "Admin read reports" ON reports FOR SELECT TO authenticated USING (is_admin() = true);
+CREATE POLICY "Admin read reports" ON reports FOR SELECT TO authenticated USING (public.is_admin() = true);
 
-CREATE POLICY "Admin update reports" ON reports FOR UPDATE TO authenticated USING (is_admin() = true) WITH CHECK (is_admin() = true);
+CREATE POLICY "Admin update reports" ON reports FOR UPDATE TO authenticated USING (public.is_admin() = true) WITH CHECK (public.is_admin() = true);
 
 -- Bans - admin only
 DROP POLICY IF EXISTS "Admin read bans" ON banned_users;
 DROP POLICY IF EXISTS "Admin write bans" ON banned_users;
 
-CREATE POLICY "Admin read bans" ON banned_users FOR SELECT TO authenticated USING (is_admin() = true);
+CREATE POLICY "Admin read bans" ON banned_users FOR SELECT TO authenticated USING (public.is_admin() = true);
 
-CREATE POLICY "Admin write bans" ON banned_users FOR ALL TO authenticated USING (is_admin() = true) WITH CHECK (is_admin() = true);
+CREATE POLICY "Admin write bans" ON banned_users FOR ALL TO authenticated USING (public.is_admin() = true) WITH CHECK (public.is_admin() = true);
 
 SELECT 'All policies replaced!' as result;

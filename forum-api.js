@@ -134,11 +134,13 @@
     }
 
     async createPost(post) {
+      const user = await this.getCurrentUser();
       const posts = this._load(this.postKey);
       posts.push(
         withPostDefaults({
           id: crypto.randomUUID(),
           ...post,
+          author_user_id: user?.id || null,
           created_at: new Date().toISOString()
         })
       );
@@ -176,8 +178,9 @@
     }
 
     async createComment(comment) {
+      const user = await this.getCurrentUser();
       const comments = this._load(this.commentKey);
-      comments.push({ id: crypto.randomUUID(), ...comment, created_at: new Date().toISOString() });
+      comments.push({ id: crypto.randomUUID(), ...comment, author_user_id: user?.id || null, created_at: new Date().toISOString() });
       this._save(this.commentKey, comments);
     }
 
@@ -270,6 +273,12 @@
 
     async getCurrentUser() {
       return null;
+    }
+
+    async getModerationLogs() {
+      const key = "polly_moderation_logs";
+      const rows = this._load(key);
+      return rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
   }
 
@@ -563,6 +572,16 @@
       const { data, error } = await this.client.auth.getUser();
       if (error) return null;
       return data.user || null;
+    }
+
+    async getModerationLogs() {
+      const { data, error } = await this.client
+        .from("moderation_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) return [];
+      return data || [];
     }
   }
 

@@ -149,6 +149,27 @@
   }
 
   function initMentionAutocomplete(api) {
+    let cachedNames = null;
+    let cacheTime = 0;
+    const CACHE_TTL = 30000;
+
+    async function getUsernames() {
+      const now = Date.now();
+      if (!cachedNames || now - cacheTime > CACHE_TTL) {
+        try {
+          const [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
+          const names = new Set();
+          posts.forEach((p) => { if (p.author_name) names.add(p.author_name); });
+          comments.forEach((c) => { if (c.author_name) names.add(c.author_name); });
+          cachedNames = [...names];
+          cacheTime = now;
+        } catch (err) {
+          cachedNames = [];
+        }
+      }
+      return cachedNames;
+    }
+
     document.querySelectorAll("textarea").forEach((textarea) => {
       if (textarea.dataset.mentionInitialized) return;
       textarea.dataset.mentionInitialized = "true";
@@ -170,12 +191,8 @@
         }
 
         try {
-          const [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
-          const names = new Set();
-          posts.forEach((p) => { if (p.author_name) names.add(p.author_name); });
-          comments.forEach((c) => { if (c.author_name) names.add(c.author_name); });
-          
-          const matches = [...names]
+          const names = await getUsernames();
+          const matches = names
             .filter((n) => n.toLowerCase().includes(searchText.toLowerCase()))
             .slice(0, 5);
 
@@ -194,7 +211,7 @@
           }
 
           dropdown.innerHTML = matches.map((name) =>
-            `<div class="mention-item" style="padding:0.3rem 0.5rem;cursor:pointer:hover{background:var(--panel-strong)}">${escapeHtml(name)}</div>`
+            `<div class="mention-item" data-name="${escapeHtml(name)}">${escapeHtml(name)}</div>`
           ).join("");
 
           dropdown.querySelectorAll(".mention-item").forEach((item) => {

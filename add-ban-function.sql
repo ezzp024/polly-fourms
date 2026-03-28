@@ -16,4 +16,6 @@ BEGIN
 END;
 $$;
 
+GRANT EXECUTE ON FUNCTION public.is_nickname_banned(text) TO authenticated;
+
 SELECT 'Ban function added!' as result;

@@ -663,6 +663,15 @@ body.is-owner .owner-only {
   color: var(--ink-muted);
 }
 
+.mention-item {
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
+
+.mention-item:hover {
+  background: var(--panel-strong);
+}
+
 .auth-tabs {
   display: flex;
   gap: 0;
