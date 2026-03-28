@@ -1,6 +1,28 @@
 (function () {
   const CONFIG = window.POLLY_CONFIG || { supabaseUrl: "", supabaseAnonKey: "" };
 
+  function friendlyError(error, fallback) {
+    const message = String((error && (error.message || error.details || error.hint)) || fallback || "Request failed");
+    const lower = message.toLowerCase();
+
+    if (lower.includes("row-level security") || lower.includes("permission denied") || lower.includes("not authorized")) {
+      return "Permission denied for this action.";
+    }
+    if (lower.includes("rate") || lower.includes("too many") || lower.includes("flood")) {
+      return "Rate limit reached. Please wait and try again.";
+    }
+    if (lower.includes("locked")) {
+      return "This thread is locked.";
+    }
+    if (lower.includes("banned")) {
+      return "Your account is banned from this action.";
+    }
+    if (lower.includes("safe") || lower.includes("unsafe") || lower.includes("url")) {
+      return "Link is not allowed. Use a safe HTTPS link.";
+    }
+    return message;
+  }
+
   function withPostDefaults(post) {
     return {
       is_pinned: false,
@@ -325,7 +347,7 @@
         is_solved: false,
         hidden_reason: null
       });
-      if (error) throw error;
+      if (error) throw new Error(friendlyError(error, "Could not create thread."));
     }
 
     async updatePost(postId, patch) {
@@ -341,12 +363,12 @@
       if (Object.prototype.hasOwnProperty.call(patch, "body")) payload.body = patch.body;
       if (Object.prototype.hasOwnProperty.call(patch, "tags")) payload.tags = Array.isArray(patch.tags) ? patch.tags : [];
       const { error } = await this.client.from("posts").update(payload).eq("id", postId);
-      if (error) throw error;
+      if (error) throw new Error(friendlyError(error, "Could not update thread."));
     }
 
     async deletePost(postId) {
       const { error } = await this.client.from("posts").delete().eq("id", postId);
-      if (error) throw error;
+      if (error) throw new Error(friendlyError(error, "Could not delete thread."));
     }
 
     async clearPostLink(postId) {
@@ -355,7 +377,7 @@
 
     async deletePostsByAuthor(name) {
       const { error } = await this.client.from("posts").delete().eq("author_name", name);
-      if (error) throw error;
+      if (error) throw new Error(friendlyError(error, "Could not delete user threads."));
     }
 
     async createComment(comment) {
@@ -373,17 +395,24 @@
         author_user_id: user.id,
         body: comment.body
       });
-      if (error) throw error;
+      if (error) throw new Error(friendlyError(error, "Could not create reply."));
+    }
+
+    async updateComment(commentId, body) {
+      const clean = String(body || "").trim().slice(0, 500);
+      if (!clean) throw new Error("Comment body is required.");
+      const { error } = await this.client.from("comments").update({ body: clean }).eq("id", commentId);
+      if (error) throw new Error(friendlyError(error, "Could not update comment."));
     }
 
     async deleteComment(commentId) {
       const { error } = await this.client.from("comments").delete().eq("id", commentId);
-      if (error) throw error;
+      if (error) throw new Error(friendlyError(error, "Could not delete comment."));
     }
 
     async deleteCommentsByAuthor(name) {
       const { error } = await this.client.from("comments").delete().eq("author_name", name);
-      if (error) throw error;
+      if (error) throw new Error(friendlyError(error, "Could not delete user comments."));
     }
 
     async createReport(report) {
@@ -402,7 +431,7 @@
         reporter_user_id: user.id,
         status: "open"
       });
-      if (error) throw error;
+      if (error) throw new Error(friendlyError(error, "Could not submit report."));
     }
 
     async createModerationLog(action, targetType, targetId, details) {
@@ -415,7 +444,7 @@
         actor_email: actor,
         details: details || {}
       });
-      if (error) throw error;
+      if (error) throw new Error(friendlyError(error, "Could not write moderation log."));
     }
 
     async resolveReport(reportId, resolverName) {
@@ -423,7 +452,7 @@
         .from("reports")
         .update({ status: "resolved", resolved_by: resolverName, resolved_at: new Date().toISOString() })
         .eq("id", reportId);
-      if (error) throw error;
+      if (error) throw new Error(friendlyError(error, "Could not resolve report."));
     }
 
     async banUser(nickname, reason, bannedBy) {
@@ -445,7 +474,7 @@
         banned_by: bannedBy || "admin",
         active: true
       });
-      if (error) throw error;
+      if (error) throw new Error(friendlyError(error, "Could not ban user."));
     }
 
     async unbanUser(banId) {
@@ -453,7 +482,7 @@
         .from("banned_users")
         .update({ active: false, resolved_at: new Date().toISOString() })
         .eq("id", banId);
-      if (error) throw error;
+      if (error) throw new Error(friendlyError(error, "Could not unban user."));
     }
 
     async getCurrentUser() {

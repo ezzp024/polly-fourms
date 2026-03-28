@@ -1,6 +1,6 @@
 create extension if not exists pgcrypto;
 
--- Replace '__ADMIN_EMAIL__' with your admin email before running this script.
+-- Admin email configured for this project.
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -8,7 +8,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select (auth.jwt() ->> 'email') = '__ADMIN_EMAIL__';
+  select (auth.jwt() ->> 'email') = 'ezzp024@gmail.com';
 $$;
 
 revoke all on function public.is_admin() from public;
