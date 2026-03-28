@@ -137,6 +137,21 @@
       this._save(this.reportKey, reports);
     }
 
+    async createModerationLog(action, targetType, targetId, details) {
+      const key = "polly_moderation_logs";
+      const rows = this._load(key);
+      rows.push({
+        id: crypto.randomUUID(),
+        action,
+        target_type: targetType,
+        target_id: targetId || null,
+        actor_email: "local",
+        details: details || {},
+        created_at: new Date().toISOString()
+      });
+      this._save(key, rows);
+    }
+
     async resolveReport(reportId, resolverName) {
       const reports = this._load(this.reportKey);
       const index = reports.findIndex((r) => r.id === reportId);
@@ -386,6 +401,19 @@
         reporter_name: profile.display_name,
         reporter_user_id: user.id,
         status: "open"
+      });
+      if (error) throw error;
+    }
+
+    async createModerationLog(action, targetType, targetId, details) {
+      const user = await this.getCurrentUser();
+      const actor = user ? String(user.email || "") : "";
+      const { error } = await this.client.from("moderation_logs").insert({
+        action,
+        target_type: targetType,
+        target_id: targetId || null,
+        actor_email: actor,
+        details: details || {}
       });
       if (error) throw error;
     }

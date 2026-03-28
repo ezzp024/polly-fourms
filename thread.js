@@ -45,6 +45,14 @@
     document.body.classList.add("is-moderator");
   }
 
+  async function safeLog(action, targetType, targetId, details) {
+    try {
+      await api.createModerationLog(action, targetType, targetId, details || {});
+    } catch {
+      // ignore logging issues if table not migrated yet
+    }
+  }
+
   const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
 
   if (!id || !isUuid(id)) {
@@ -269,15 +277,19 @@
     try {
       if (action === "pin") {
         await api.updatePost(cachedPost.id, { is_pinned: !cachedPost.is_pinned });
+        await safeLog("toggle_pin", "post", cachedPost.id, { value: !cachedPost.is_pinned });
       }
       if (action === "sticky") {
         await api.updatePost(cachedPost.id, { is_sticky: !cachedPost.is_sticky });
+        await safeLog("toggle_sticky", "post", cachedPost.id, { value: !cachedPost.is_sticky });
       }
       if (action === "lock") {
         await api.updatePost(cachedPost.id, { is_locked: !cachedPost.is_locked });
+        await safeLog("toggle_lock", "post", cachedPost.id, { value: !cachedPost.is_locked });
       }
       if (action === "solved") {
         await api.updatePost(cachedPost.id, { is_solved: !cachedPost.is_solved });
+        await safeLog("toggle_solved", "post", cachedPost.id, { value: !cachedPost.is_solved });
       }
       if (action === "hide") {
         const nextHidden = !cachedPost.is_hidden;
@@ -286,6 +298,7 @@
           reason = prompt("Reason for hiding this thread:", "Needs moderator review") || "Needs moderator review";
         }
         await api.updatePost(cachedPost.id, { is_hidden: nextHidden, hidden_reason: nextHidden ? reason : "" });
+        await safeLog("toggle_hidden", "post", cachedPost.id, { value: nextHidden, reason });
       }
       await load();
     } catch (error) {
@@ -323,6 +336,7 @@
         body: body.trim(),
         tags: normalizeTags(String(tags || ""))
       });
+      await safeLog("edit_thread", "post", cachedPost.id, { title: title.trim().slice(0, 120) });
       await load();
     } catch (error) {
       alert(`Could not edit thread: ${error.message || String(error)}`);
@@ -334,6 +348,7 @@
     if (!confirm("Delete this thread permanently?")) return;
     try {
       await api.deletePost(cachedPost.id);
+      await safeLog("delete_thread", "post", cachedPost.id, {});
       window.location.href = `forum.html?section=${encodeURIComponent(cachedPost.category || "general")}`;
     } catch (error) {
       alert(`Could not delete thread: ${error.message || String(error)}`);
@@ -350,6 +365,7 @@
 
     try {
       await api.deleteComment(commentId);
+      await safeLog("delete_comment", "comment", commentId, {});
       await load();
     } catch (error) {
       alert(`Could not delete comment: ${error.message || String(error)}`);

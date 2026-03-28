@@ -166,32 +166,55 @@
     const nickname = getNickname() || "admin";
 
     if (action === "resolve-report") return api.resolveReport(id, nickname);
-    if (action === "pin") return api.updatePost(id, { is_pinned: !state });
-    if (action === "sticky") return api.updatePost(id, { is_sticky: !state });
+    if (action === "pin") {
+      await api.updatePost(id, { is_pinned: !state });
+      await safeLog("toggle_pin", "post", id, { value: !state, actor: nickname });
+      return;
+    }
+    if (action === "sticky") {
+      await api.updatePost(id, { is_sticky: !state });
+      await safeLog("toggle_sticky", "post", id, { value: !state, actor: nickname });
+      return;
+    }
     if (action === "hide") {
       const nextHidden = !state;
       let reason = "";
       if (nextHidden) {
         reason = prompt("Reason for hiding thread:", "Needs moderator review") || "Needs moderator review";
       }
-      return api.updatePost(id, { is_hidden: nextHidden, hidden_reason: nextHidden ? reason : "" });
+      await api.updatePost(id, { is_hidden: nextHidden, hidden_reason: nextHidden ? reason : "" });
+      await safeLog("toggle_hidden", "post", id, { value: nextHidden, reason, actor: nickname });
+      return;
     }
-    if (action === "remove-link") return api.clearPostLink(id);
+    if (action === "remove-link") {
+      await api.clearPostLink(id);
+      await safeLog("remove_link", "post", id, { actor: nickname });
+      return;
+    }
     if (action === "delete-thread") {
       if (!confirm("Delete this thread permanently?")) return;
-      return api.deletePost(id);
+      await api.deletePost(id);
+      await safeLog("delete_thread", "post", id, { actor: nickname });
+      return;
     }
     if (action === "ban-user") {
       const reason = prompt("Ban reason:", "Policy violation") || "Policy violation";
-      return api.banUser(rawUser, reason, nickname);
+      await api.banUser(rawUser, reason, nickname);
+      await safeLog("ban_user", "user", rawUser, { reason, actor: nickname });
+      return;
     }
     if (action === "remove-user-content") {
       if (!confirm(`Remove all posts/comments by ${rawUser}?`)) return;
       await api.deletePostsByAuthor(rawUser);
       await api.deleteCommentsByAuthor(rawUser);
-      return api.banUser(rawUser, "Removed by administrator", nickname);
+      await api.banUser(rawUser, "Removed by administrator", nickname);
+      await safeLog("remove_user_content", "user", rawUser, { actor: nickname });
+      return;
     }
-    if (action === "unban") return api.unbanUser(id);
+    if (action === "unban") {
+      await api.unbanUser(id);
+      await safeLog("unban_user", "ban", id, { actor: nickname });
+    }
   }
 
   function getButton(event) {
@@ -199,6 +222,14 @@
     if (!(target instanceof HTMLElement)) return null;
     if (target.tagName !== "BUTTON") return null;
     return target;
+  }
+
+  async function safeLog(action, targetType, targetId, details) {
+    try {
+      await api.createModerationLog(action, targetType, targetId, details);
+    } catch {
+      // ignore missing moderation log table during transitional setups
+    }
   }
 
   async function handleTableActions(event) {
