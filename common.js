@@ -8,6 +8,15 @@
     profile: null
   };
 
+  function hasSupabaseConfig() {
+    return (
+      typeof CONFIG.supabaseUrl === "string" &&
+      CONFIG.supabaseUrl.length > 0 &&
+      typeof CONFIG.supabaseAnonKey === "string" &&
+      CONFIG.supabaseAnonKey.length > 0
+    );
+  }
+
   const SECTION_META = {
     software: {
       key: "software",
@@ -59,6 +68,13 @@
   }
 
   function getNickname() {
+    if (hasSupabaseConfig()) {
+      if (identityState.profile && identityState.profile.display_name) {
+        return identityState.profile.display_name;
+      }
+      return "";
+    }
+
     if (identityState.profile && identityState.profile.display_name) {
       return identityState.profile.display_name;
     }
@@ -66,6 +82,7 @@
   }
 
   function setNickname(value) {
+    if (hasSupabaseConfig()) return;
     localStorage.setItem("polly_nickname", value);
   }
 
@@ -93,6 +110,13 @@
     }
     identityState.loaded = true;
     return identityState;
+  }
+
+  async function refreshIdentity() {
+    identityState.loaded = false;
+    identityState.user = null;
+    identityState.profile = null;
+    return ensureIdentityLoaded();
   }
 
   async function saveMyDisplayName(displayName) {
@@ -136,7 +160,7 @@
         input.value = getNickname();
       }
       if (!state.user) {
-        input.placeholder = "Login to set display name";
+        input.placeholder = hasSupabaseConfig() ? "Login to set display name" : "Your nickname";
       }
     });
 
@@ -149,13 +173,17 @@
         if (user) {
           const saved = await saveMyDisplayName(value);
           input.value = saved;
+        } else if (!hasSupabaseConfig()) {
+          setNickname(value);
+          input.value = value;
         } else {
+          window.location.href = "auth.html";
+        }
+      } catch {
+        if (!hasSupabaseConfig()) {
           setNickname(value);
           input.value = value;
         }
-      } catch {
-        setNickname(value);
-        input.value = value;
       }
     });
   }
@@ -259,12 +287,7 @@
   }
 
   function createAuthClient() {
-    const hasSupabase =
-      typeof CONFIG.supabaseUrl === "string" &&
-      CONFIG.supabaseUrl.length > 0 &&
-      typeof CONFIG.supabaseAnonKey === "string" &&
-      CONFIG.supabaseAnonKey.length > 0 &&
-      window.supabase;
+    const hasSupabase = hasSupabaseConfig() && window.supabase;
     if (!hasSupabase) return null;
     if (!authClient) {
       authClient = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
@@ -366,10 +389,12 @@
     rankFromScore,
     buildMemberStats,
     createAuthClient,
+    hasSupabaseConfig,
     getAuthUser,
     getAuthedEmail,
     fetchMyProfile,
     ensureIdentityLoaded,
+    refreshIdentity,
     saveMyDisplayName,
     getRoleByNickname,
     getCurrentRole,

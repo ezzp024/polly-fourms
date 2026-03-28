@@ -7,8 +7,7 @@
     isModerator,
     profileLink,
     buildMemberStats,
-    toHandle,
-    getNickname
+    toHandle
   } = window.PollyCommon;
   const api = window.PollyApi.createApi();
 
@@ -120,11 +119,21 @@
     const postId = target.getAttribute("data-id");
     if (action !== "report" || !postId) return;
 
-    const nickname = getNickname();
-    if (!nickname) {
-      alert("Set your display name in Profile settings first.");
+    const user = await window.PollyCommon.getAuthUser();
+    if (!user) {
+      alert("Please login first.");
+      window.location.href = `auth.html?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
       return;
     }
+
+    const profile = await window.PollyCommon.fetchMyProfile();
+    if (!profile || !profile.display_name) {
+      alert("Set your display name in Profile settings first.");
+      window.location.href = "profile.html?setup=1";
+      return;
+    }
+
+    const nickname = profile.display_name;
 
     if (await api.isNicknameBanned(nickname)) {
       alert("Your account is currently banned from reporting.");

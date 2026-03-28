@@ -1,7 +1,6 @@
 (async function () {
   const {
     initIdentityForm,
-    getNickname,
     getSection,
     escapeHtml,
     formatDate,
@@ -135,11 +134,21 @@
 
   replyForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const nickname = getNickname();
-    if (!nickname) {
-      alert("Set your display name in Profile settings first.");
+    const user = await window.PollyCommon.getAuthUser();
+    if (!user) {
+      alert("Please login first.");
+      window.location.href = `auth.html?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
       return;
     }
+
+    const profile = await window.PollyCommon.fetchMyProfile();
+    if (!profile || !profile.display_name) {
+      alert("Set your display name in Profile settings first.");
+      window.location.href = "profile.html?setup=1";
+      return;
+    }
+
+    const nickname = profile.display_name;
 
     if (await api.isNicknameBanned(nickname)) {
       alert("Your account is currently banned from replying.");
@@ -181,11 +190,21 @@
 
   reportThread.addEventListener("click", async () => {
     if (!cachedPost) return;
-    const nickname = getNickname();
-    if (!nickname) {
-      alert("Set your display name in Profile settings first.");
+    const user = await window.PollyCommon.getAuthUser();
+    if (!user) {
+      alert("Please login first.");
+      window.location.href = `auth.html?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
       return;
     }
+
+    const profile = await window.PollyCommon.fetchMyProfile();
+    if (!profile || !profile.display_name) {
+      alert("Set your display name in Profile settings first.");
+      window.location.href = "profile.html?setup=1";
+      return;
+    }
+
+    const nickname = profile.display_name;
 
     if (await api.isNicknameBanned(nickname)) {
       alert("Your account is currently banned from reporting.");

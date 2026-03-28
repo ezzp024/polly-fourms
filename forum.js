@@ -3,7 +3,6 @@
     SECTION_META,
     getSection,
     initIdentityForm,
-    getNickname,
     normalizeTags,
     escapeHtml,
     formatDate,
@@ -156,11 +155,21 @@
 
   newThreadForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const nickname = getNickname();
-    if (!nickname) {
-      alert("Set your display name in Profile settings first.");
+    const user = await window.PollyCommon.getAuthUser();
+    if (!user) {
+      alert("Please login first.");
+      window.location.href = `auth.html?next=${encodeURIComponent(`forum.html?section=${section.key}`)}`;
       return;
     }
+
+    const profile = await window.PollyCommon.fetchMyProfile();
+    if (!profile || !profile.display_name) {
+      alert("Set your display name in Profile settings first.");
+      window.location.href = "profile.html?setup=1";
+      return;
+    }
+
+    const nickname = profile.display_name;
 
     if (await api.isNicknameBanned(nickname)) {
       alert("Your account is currently banned from posting.");

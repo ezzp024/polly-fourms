@@ -145,6 +145,7 @@
 
     try {
       await window.PollyCommon.saveMyDisplayName(value);
+      await window.PollyCommon.refreshIdentity();
       accountStatus.textContent = "Display name saved successfully.";
       const [postsRaw, comments] = await Promise.all([api.getPosts(), api.getComments()]);
       const posts = isModerator() ? postsRaw : postsRaw.filter((p) => !p.is_hidden);
