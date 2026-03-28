@@ -226,8 +226,8 @@
 
   class SupabaseBackend {
     constructor(url, key, options) {
-      const storageKey = options && options.authStorageKey;
-      const clientOptions = storageKey ? { auth: { storageKey } } : undefined;
+      const storageKey = (options && options.authStorageKey) || "polly_auth_main";
+      const clientOptions = { auth: { storageKey } };
       this.client = window.supabase.createClient(url, key, clientOptions);
     }
 

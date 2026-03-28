@@ -55,6 +55,16 @@
       : `Logged in as ${email}.`;
   }
 
+  async function waitForUser(timeoutMs) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const user = await window.PollyCommon.getAuthUser();
+      if (user) return user;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return null;
+  }
+
   async function handleVerificationLanding() {
     const hash = getHashParams();
     const type = hash.get("type");
@@ -153,8 +163,14 @@
     const password = String(loginPassword.value || "");
 
     try {
-      const { error } = await client.auth.signInWithPassword({ email, password });
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
       if (error) throw error;
+
+      const user = (data && data.user) || (await waitForUser(6000));
+      if (!user) {
+        throw new Error("Login succeeded but session is not ready yet. Please try again.");
+      }
+
       await refreshStatus();
 
       const profile = await window.PollyCommon.fetchMyProfile();
