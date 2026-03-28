@@ -137,6 +137,16 @@
       this._save(this.commentKey, comments);
     }
 
+    async updateComment(commentId, body) {
+      const comments = this._load(this.commentKey);
+      const index = comments.findIndex((c) => c.id === commentId);
+      if (index < 0) throw new Error("Comment not found");
+      const clean = String(body || "").trim().slice(0, 500);
+      if (!clean) throw new Error("Comment body is required.");
+      comments[index] = { ...comments[index], body: clean };
+      this._save(this.commentKey, comments);
+    }
+
     async deleteCommentsByAuthor(name) {
       this._save(
         this.commentKey,

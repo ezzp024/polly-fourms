@@ -56,8 +56,16 @@
         const threadCount = sectionPosts.length;
         const replyCount = sectionPosts.reduce((sum, post) => sum + (repliesByPost.get(post.id) || 0), 0);
         const latest = sectionPosts[0];
+        const latestFlags = latest
+          ? [
+              latest.is_pinned ? '<span class="badge badge-pin">Pinned</span>' : "",
+              latest.is_sticky ? '<span class="badge badge-sticky">Sticky</span>' : "",
+              latest.is_locked ? '<span class="badge badge-hidden">Locked</span>' : "",
+              latest.is_solved ? '<span class="badge badge-sticky">Solved</span>' : ""
+            ].join(" ")
+          : "";
         const latestText = latest
-          ? `<div class="latest-meta"><a href="thread.html?id=${latest.id}">${escapeHtml(latest.title)}</a><br>by <a href="${profileLink(latest.author_name)}">${escapeHtml(latest.author_name)}</a> - ${formatDate(latest.created_at)}</div>`
+          ? `<div class="latest-meta"><a href="thread.html?id=${latest.id}">${escapeHtml(latest.title)}</a> ${latestFlags}<br>by <a href="${profileLink(latest.author_name)}">${escapeHtml(latest.author_name)}</a> - ${formatDate(latest.created_at)}</div>`
           : '<span class="muted">No threads yet</span>';
 
         return `
@@ -82,7 +90,12 @@
           .map(
             (post) => `
               <article class="stack-item">
-                <strong><a href="thread.html?id=${post.id}">${escapeHtml(post.title)}</a></strong>
+                <strong><a href="thread.html?id=${post.id}">${escapeHtml(post.title)}</a> ${[
+                  post.is_pinned ? '<span class="badge badge-pin">Pinned</span>' : "",
+                  post.is_sticky ? '<span class="badge badge-sticky">Sticky</span>' : "",
+                  post.is_locked ? '<span class="badge badge-hidden">Locked</span>' : "",
+                  post.is_solved ? '<span class="badge badge-sticky">Solved</span>' : ""
+                ].join(" ")}</strong>
                 <small>by <a href="${profileLink(post.author_name)}">${escapeHtml(post.author_name)}</a> - ${formatDate(post.created_at)}</small>
               </article>
             `

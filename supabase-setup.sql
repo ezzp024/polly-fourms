@@ -115,6 +115,23 @@ create table if not exists public.moderation_logs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.action_rate_limits (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  action text not null,
+  last_at timestamptz not null default now(),
+  primary key (user_id, action)
+);
+
+create table if not exists public.blocked_link_domains (
+  domain text primary key
+);
+
+insert into public.blocked_link_domains(domain) values
+  ('localhost'),
+  ('127.0.0.1'),
+  ('0.0.0.0')
+on conflict (domain) do nothing;
+
 create index if not exists idx_posts_author_user_id on public.posts (author_user_id);
 create index if not exists idx_comments_author_user_id on public.comments (author_user_id);
 create index if not exists idx_reports_post_id on public.reports (post_id);
@@ -127,6 +144,90 @@ alter table public.comments enable row level security;
 alter table public.reports enable row level security;
 alter table public.banned_users enable row level security;
 alter table public.moderation_logs enable row level security;
+
+create or replace function public.enforce_action_rate_limit(p_action text, p_min_seconds int)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid;
+  v_last timestamptz;
+begin
+  v_uid := auth.uid();
+  if v_uid is null then
+    raise exception 'Login required';
+  end if;
+
+  select last_at into v_last
+  from public.action_rate_limits
+  where user_id = v_uid and action = p_action
+  for update;
+
+  if v_last is not null and extract(epoch from (now() - v_last)) < p_min_seconds then
+    raise exception 'Rate limit exceeded for action %', p_action;
+  end if;
+
+  insert into public.action_rate_limits(user_id, action, last_at)
+  values (v_uid, p_action, now())
+  on conflict (user_id, action)
+  do update set last_at = excluded.last_at;
+end;
+$$;
+
+revoke all on function public.enforce_action_rate_limit(text, int) from public;
+grant execute on function public.enforce_action_rate_limit(text, int) to authenticated;
+
+create or replace function public.validate_post_links()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_url text;
+  v_domain text;
+begin
+  if new.software_url is not null and length(trim(new.software_url)) > 0 then
+    v_url := trim(new.software_url);
+    if v_url !~* '^https://' then
+      raise exception 'Only HTTPS links are allowed.';
+    end if;
+
+    v_domain := lower(split_part(replace(replace(v_url, 'https://', ''), 'http://', ''), '/', 1));
+    if exists (select 1 from public.blocked_link_domains b where b.domain = v_domain) then
+      raise exception 'Unsafe link domain is blocked.';
+    end if;
+  end if;
+
+  if new.body ~* 'http://' then
+    raise exception 'Only HTTPS links are allowed in post body.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_posts_rate_limit_insert on public.posts;
+create trigger trg_posts_rate_limit_insert
+before insert on public.posts
+for each row execute function public.enforce_action_rate_limit('create_thread', 15);
+
+drop trigger if exists trg_comments_rate_limit_insert on public.comments;
+create trigger trg_comments_rate_limit_insert
+before insert on public.comments
+for each row execute function public.enforce_action_rate_limit('create_comment', 8);
+
+drop trigger if exists trg_reports_rate_limit_insert on public.reports;
+create trigger trg_reports_rate_limit_insert
+before insert on public.reports
+for each row execute function public.enforce_action_rate_limit('create_report', 20);
+
+drop trigger if exists trg_posts_validate_links_insupd on public.posts;
+create trigger trg_posts_validate_links_insupd
+before insert or update on public.posts
+for each row execute function public.validate_post_links();
 
 create policy "Public read profiles"
 on public.profiles for select
@@ -201,10 +302,22 @@ on public.comments for delete
 to authenticated
 using (auth.uid() = author_user_id);
 
+create policy "Owner update comments"
+on public.comments for update
+to authenticated
+using (auth.uid() = author_user_id)
+with check (auth.uid() = author_user_id);
+
 create policy "Admin delete comments"
 on public.comments for delete
 to authenticated
 using (public.is_admin());
+
+create policy "Admin update comments"
+on public.comments for update
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
 
 create policy "Authenticated create reports"
 on public.reports for insert

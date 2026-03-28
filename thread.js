@@ -137,7 +137,7 @@
               <article class="comment-item">
                 <strong><a href="${profileLink(comment.author_name)}">${escapeHtml(comment.author_name)}</a></strong> <small class="muted">${formatDate(comment.created_at)}</small>
                 <p>${escapeHtml(comment.body)}</p>
-                ${(canModerate || (currentUser && comment.author_user_id && comment.author_user_id === currentUser.id)) ? `<p><button type="button" data-action="delete-comment" data-id="${comment.id}" data-owner="${comment.author_user_id || ""}">Delete Comment</button></p>` : ""}
+                ${(canModerate || (currentUser && comment.author_user_id && comment.author_user_id === currentUser.id)) ? `<p><button type="button" data-action="edit-comment" data-id="${comment.id}" data-owner="${comment.author_user_id || ""}">Edit</button> <button type="button" data-action="delete-comment" data-id="${comment.id}" data-owner="${comment.author_user_id || ""}">Delete</button></p>` : ""}
               </article>
             `
           )
@@ -386,7 +386,7 @@
     const action = target.getAttribute("data-action");
     const commentId = target.getAttribute("data-id");
     const commentOwner = target.getAttribute("data-owner") || "";
-    if (action !== "delete-comment" || !commentId) return;
+    if (!commentId) return;
 
     const canDelete = canModerate || Boolean(currentUser && commentOwner && currentUser.id === commentOwner);
     if (!canDelete) {
@@ -396,6 +396,24 @@
 
     const commentExists = cachedComments.some((comment) => comment.id === commentId);
     if (!commentExists) return;
+
+    if (action === "edit-comment") {
+      const current = cachedComments.find((comment) => comment.id === commentId);
+      if (!current) return;
+      const nextBody = prompt("Edit comment", current.body);
+      if (!nextBody || !nextBody.trim()) return;
+
+      try {
+        await api.updateComment(commentId, nextBody.trim().slice(0, 500));
+        await safeLog("edit_comment", "comment", commentId, {});
+        await load();
+      } catch (error) {
+        alert(`Could not edit comment: ${error.message || String(error)}`);
+      }
+      return;
+    }
+
+    if (action !== "delete-comment") return;
 
     if (!confirm("Delete this comment?")) return;
 
