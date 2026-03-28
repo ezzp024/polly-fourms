@@ -121,7 +121,7 @@
                   <div class="thread-row-title">
                     <div class="thread-title-row"><strong><a href="thread.html?id=${post.id}">${escapeHtml(post.title)}</a></strong>${titleBadges}</div>
                     <small>${escapeHtml(post.body.slice(0, 110))}${post.body.length > 110 ? "..." : ""}</small>
-                    ${canModerate ? `<div class="mod-tools"><button type="button" data-post="${post.id}" data-action="pin">${post.is_pinned ? "Unpin" : "Pin"}</button><button type="button" data-post="${post.id}" data-action="sticky">${post.is_sticky ? "Unsticky" : "Sticky"}</button><button type="button" data-post="${post.id}" data-action="hide">${post.is_hidden ? "Unhide" : "Hide"}</button></div>` : ""}
+                    ${canModerate ? `<div class="mod-tools"><button type="button" data-post="${post.id}" data-action="pin">${post.is_pinned ? "Unpin" : "Pin"}</button><button type="button" data-post="${post.id}" data-action="sticky">${post.is_sticky ? "Unsticky" : "Sticky"}</button><button type="button" data-post="${post.id}" data-action="lock">${post.is_locked ? "Unlock" : "Lock"}</button><button type="button" data-post="${post.id}" data-action="solve">${post.is_solved ? "Unsolve" : "Solved"}</button><button type="button" data-post="${post.id}" data-action="hide">${post.is_hidden ? "Unhide" : "Hide"}</button></div>` : ""}
                   </div>
                 </td>
                 <td><a href="${profileLink(post.author_name)}">${escapeHtml(post.author_name)}</a> <span class="badge ${rankClass}">${rank}</span></td>
@@ -233,6 +233,12 @@
       }
       if (action === "sticky") {
         await api.updatePost(postId, { is_sticky: !current.is_sticky });
+      }
+      if (action === "lock") {
+        await api.updatePost(postId, { is_locked: !current.is_locked });
+      }
+      if (action === "solve") {
+        await api.updatePost(postId, { is_solved: !current.is_solved });
       }
       if (action === "hide") {
         const nextHidden = !current.is_hidden;

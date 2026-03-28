@@ -123,7 +123,7 @@
     controlRows.innerHTML = sortedPosts.length
       ? sortedPosts
           .map((post) => {
-            const flags = [post.is_pinned ? "Pinned" : null, post.is_sticky ? "Sticky" : null, post.is_hidden ? "Hidden" : null]
+            const flags = [post.is_pinned ? "Pinned" : null, post.is_sticky ? "Sticky" : null, post.is_locked ? "Locked" : null, post.is_solved ? "Solved" : null, post.is_hidden ? "Hidden" : null]
               .filter(Boolean)
               .join(", ");
             return `
@@ -133,6 +133,8 @@
                 <td>
                   <button type="button" data-action="pin" data-id="${post.id}" data-state="${post.is_pinned ? "1" : "0"}">${post.is_pinned ? "Unpin" : "Pin"}</button>
                   <button type="button" data-action="sticky" data-id="${post.id}" data-state="${post.is_sticky ? "1" : "0"}">${post.is_sticky ? "Unsticky" : "Sticky"}</button>
+                  <button type="button" data-action="lock" data-id="${post.id}" data-state="${post.is_locked ? "1" : "0"}">${post.is_locked ? "Unlock" : "Lock"}</button>
+                  <button type="button" data-action="solve" data-id="${post.id}" data-state="${post.is_solved ? "1" : "0"}">${post.is_solved ? "Unsolve" : "Solved"}</button>
                   <button type="button" data-action="hide" data-id="${post.id}" data-state="${post.is_hidden ? "1" : "0"}">${post.is_hidden ? "Unhide" : "Hide"}</button>
                   <button type="button" data-action="remove-link" data-id="${post.id}">Remove Link</button>
                   <button type="button" data-action="delete-thread" data-id="${post.id}">Delete</button>
@@ -174,6 +176,16 @@
     if (action === "sticky") {
       await api.updatePost(id, { is_sticky: !state });
       await safeLog("toggle_sticky", "post", id, { value: !state, actor: nickname });
+      return;
+    }
+    if (action === "lock") {
+      await api.updatePost(id, { is_locked: !state });
+      await safeLog("toggle_lock", "post", id, { value: !state, actor: nickname });
+      return;
+    }
+    if (action === "solve") {
+      await api.updatePost(id, { is_solved: !state });
+      await safeLog("toggle_solved", "post", id, { value: !state, actor: nickname });
       return;
     }
     if (action === "hide") {
