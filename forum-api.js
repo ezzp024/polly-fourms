@@ -1,11 +1,57 @@
 (function () {
   const CONFIG = window.POLLY_CONFIG || { supabaseUrl: "", supabaseAnonKey: "" };
 
+  function sanitizeInput(input) {
+    if (input == null) return "";
+    return String(input)
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
+      .slice(0, 10000);
+  }
+
+  function sanitizePostInput(post) {
+    if (!post || typeof post !== "object") return {};
+    return {
+      title: sanitizeInput(post.title),
+      body: sanitizeInput(post.body),
+      category: sanitizeInput(post.category),
+      software_url: post.software_url ? sanitizeInput(post.software_url).slice(0, 500) : null,
+      tags: Array.isArray(post.tags) ? post.tags.map((t) => sanitizeInput(t)).slice(0, 10) : [],
+      author_name: sanitizeInput(post.author_name)
+    };
+  }
+
+  function sanitizeCommentInput(comment) {
+    if (!comment || typeof comment !== "object") return {};
+    return {
+      post_id: comment.post_id,
+      body: sanitizeInput(comment.body),
+      author_name: sanitizeInput(comment.author_name)
+    };
+  }
+
+  function sanitizeReportInput(report) {
+    if (!report || typeof report !== "object") return {};
+    return {
+      post_id: report.post_id,
+      reason: sanitizeInput(report.reason).slice(0, 500),
+      reporter_name: sanitizeInput(report.reporter_name)
+    };
+  }
+
   function friendlyError(error, fallback) {
     const message = String((error && (error.message || error.details || error.hint)) || fallback || "Request failed");
     const lower = message.toLowerCase();
 
     if (lower.includes("row-level security") || lower.includes("permission denied") || lower.includes("not authorized")) {
+      return "Permission denied for this action.";
+    }
+    if (lower.includes("only admins can change moderation fields")) {
+      return "Permission denied for this action.";
+    }
+    if (lower.includes("author identity cannot be changed") || lower.includes("author name cannot be changed")) {
       return "Permission denied for this action.";
     }
     if (lower.includes("rate") || lower.includes("too many") || lower.includes("flood")) {
@@ -19,6 +65,9 @@
     }
     if (lower.includes("safe") || lower.includes("unsafe") || lower.includes("url")) {
       return "Link is not allowed. Use a safe HTTPS link.";
+    }
+    if (lower.includes("display name is already in use")) {
+      return "Display name is already in use. Choose a different one.";
     }
     return message;
   }
@@ -354,12 +403,13 @@
         throw new Error("Please set your display name in profile settings first.");
       }
 
+      const clean = sanitizePostInput(post);
       const { error } = await this.client.from("posts").insert({
-        title: post.title,
-        body: post.body,
-        category: post.category,
-        software_url: post.software_url || null,
-        tags: Array.isArray(post.tags) ? post.tags : [],
+        title: clean.title,
+        body: clean.body,
+        category: clean.category || "general",
+        software_url: clean.software_url,
+        tags: clean.tags,
         author_name: profile.display_name,
         author_user_id: user.id,
         is_pinned: false,
@@ -411,11 +461,12 @@
         throw new Error("Please set your display name in profile settings first.");
       }
 
+      const clean = sanitizeCommentInput(comment);
       const { error } = await this.client.from("comments").insert({
-        post_id: comment.post_id,
+        post_id: clean.post_id,
         author_name: profile.display_name,
         author_user_id: user.id,
-        body: comment.body
+        body: clean.body
       });
       if (error) throw new Error(friendlyError(error, "Could not create reply."));
     }
@@ -446,9 +497,10 @@
         throw new Error("Please set your display name in profile settings first.");
       }
 
+      const clean = sanitizeReportInput(report);
       const { error } = await this.client.from("reports").insert({
-        post_id: report.post_id,
-        reason: report.reason,
+        post_id: clean.post_id,
+        reason: clean.reason,
         reporter_name: profile.display_name,
         reporter_user_id: user.id,
         status: "open"

@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Polly Fourms - FAQ / Help</title>
+  <meta name="description" content="Frequently Asked Questions and Help for Polly Fourms." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700;800&family=Literata:opsz,wght@7..72,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="top-strip">
+    <div class="container top-strip-inner">
+      <p>Polly Fourms - FAQ / Help Center</p>
+    </div>
+  </div>
+
+  <header class="site-head container">
+    <a class="logo-block" href="index.html">
+      <span class="logo-badge">PF</span>
+      <span>
+        <strong>Polly Fourms</strong>
+        <small>Open Source Board Network</small>
+      </span>
+    </a>
+  </header>
+
+  <nav class="main-nav">
+    <div class="container nav-inner">
+      <a href="index.html">Forum Index</a>
+      <a href="forum.html">Browse</a>
+      <a href="releases.html">Downloads</a>
+      <a href="auth.html">Login</a>
+      <a href="profile.html">Members</a>
+    </div>
+  </nav>
+
+  <main class="container layout-grid">
+    <section class="panel">
+      <div class="panel-head">
+        <h1>Frequently Asked Questions</h1>
+        <p>Search or browse common questions below.</p>
+      </div>
+
+      <div class="thread-box">
+        <div class="compose-box">
+          <label>Search FAQ<input type="search" id="faqSearch" placeholder="Type to search..." /></label>
+        </div>
+
+        <div id="faqContent">
+          <article class="faq-item" data-keywords="register sign up account create">
+            <h3>How do I create an account?</h3>
+            <p>Click "Login" in the navigation, then use the Register form. Enter your email and a password (10+ characters). Check your email for a verification link.</p>
+          </article>
+
+          <article class="faq-item" data-keywords="login sign in access">
+            <h3>How do I log in?</h3>
+            <p>Click "Login" in the navigation, then use the Login form with your email and password.</p>
+          </article>
+
+          <article class="faq-item" data-keywords="display name nickname username profile">
+            <h3>How do I set my display name?</h3>
+            <p>After logging in, go to your Profile page. Enter your desired display name and click Save. This name will appear on your posts.</p>
+          </article>
+
+          <article class="faq-item" data-keywords="post thread create new">
+            <h3>How do I create a new thread?</h3>
+            <p>Navigate to a forum section (like Software Releases or Coding Help), then use the "Post New Thread" form at the top.</p>
+          </article>
+
+          <article class="faq-item" data-keywords="reply comment respond">
+            <h3>How do I reply to a thread?</h3>
+            <p>Open any thread and scroll to the "Post Reply" form at the bottom. Enter your message and click Submit.</p>
+          </article>
+
+          <article class="faq-item" data-keywords="report abuse flag spam">
+            <h3>How do I report inappropriate content?</h3>
+            <p>Click the "Report" button on any thread or reply. Select a reason for the report. Our moderators will review it.</p>
+          </article>
+
+          <article class="faq-item" data-keywords="download software release">
+            <h3>Where can I find software downloads?</h3>
+            <p>Click "Downloads" in the navigation or visit the Software Releases section.</p>
+          </article>
+
+          <article class="faq-item" data-keywords="pin sticky lock solved hide moderator">
+            <h3>What do Pin, Sticky, Lock, and Hide mean?</h3>
+            <p><strong>Pin:</strong> Keeps thread at top. <strong>Sticky:</strong> Keeps thread near top. <strong>Lock:</strong> Prevents new replies. <strong>Hide:</strong> Removes thread from public view. These are moderator tools.</p>
+          </article>
+
+          <article class="faq-item" data-keywords="password reset forgot">
+            <h3>I forgot my password. How do I reset it?</h3>
+            <p>Use the "Resend Verification Email" form on the login page. For full password reset, contact an administrator through the report system.</p>
+          </article>
+
+          <article class="faq-item" data-keywords="delete account remove">
+            <h3>How do I delete my account?</h3>
+            <p>Go to your Profile page and look for account settings. Contact an administrator if you need assistance.</p>
+          </article>
+
+          <article class="faq-item" data-keywords="markdown bold italic code">
+            <h3>Can I format my posts?</h3>
+            <p>Yes! Use markdown: **bold**, *italic*, `code`, ## headers, and more.</p>
+          </article>
+
+          <article class="faq-item" data-keywords="dark mode theme">
+            <h3>Is there a dark mode?</h3>
+            <p>Click the moon/sun icon in the navigation bar to toggle between light and dark themes.</p>
+          </article>
+
+          <article class="faq-item" data-keywords="bookmark save">
+            <h3>Can I bookmark threads?</h3>
+            <p>Click the "Bookmark" button on any thread to save it for later. Your bookmarks are stored in your browser.</p>
+          </article>
+
+          <article class="faq-item" data-keywords="shortcut keyboard">
+            <h3>Are there keyboard shortcuts?</h3>
+            <p>Yes! Press <strong>/</strong> to search, <strong>?</strong> for help, <strong>Alt+N</strong> for new thread, <strong>Alt+H</strong> for home, <strong>Alt+C</strong> to compose.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <section class="panel mini-panel">
+        <h2>Quick Links</h2>
+        <a href="terms.html">Terms of Service</a>
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="index.html">Forum Home</a>
+      </section>
+    </aside>
+  </main>
+
+  <style>
+    .faq-item {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1rem;
+      margin-bottom: 0.8rem;
+      background: var(--panel);
+    }
+    .faq-item h3 {
+      margin: 0 0 0.5rem 0;
+      color: var(--primary);
+    }
+    .faq-item p {
+      margin: 0;
+      color: var(--ink);
+    }
+    .faq-item.hidden-by-search {
+      display: none;
+    }
+  </style>
+
+  <script src="config.js"></script>
+  <script>
+    const searchInput = document.getElementById("faqSearch");
+    const faqItems = document.querySelectorAll(".faq-item");
+
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        const query = searchInput.value.toLowerCase().trim();
+        faqItems.forEach((item) => {
+          const keywords = item.getAttribute("data-keywords") || "";
+          const text = (item.textContent || "").toLowerCase();
+          const matches = !query || keywords.includes(query) || text.includes(query);
+          item.classList.toggle("hidden-by-search", !matches);
+        });
+      });
+    }
+
+    if (window.PollyCommon && window.PollyCommon.initThemeToggle) {
+      window.PollyCommon.initThemeToggle();
+    }
+  </script>
+</body>
+</html>

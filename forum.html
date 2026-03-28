@@ -4,6 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Polly Fourms - Forum Section</title>
+  <meta property="og:title" content="Polly Fourms - Forum Section" />
+  <meta property="og:description" content="Browse and participate in forum discussions." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://ezzp024.github.io/polly-fourms/forum.html" />
+  <meta name="twitter:card" content="summary" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700;800&family=Literata:opsz,wght@7..72,700&display=swap" rel="stylesheet" />
@@ -61,7 +66,7 @@
         <h2>Post New Thread</h2>
         <form id="newThreadForm" autocomplete="off">
           <label>Thread Title<input name="title" type="text" maxlength="120" required /></label>
-          <label>Message<textarea name="body" rows="6" maxlength="4000" required></textarea></label>
+          <label>Message<textarea name="body" id="newThreadBody" rows="6" maxlength="4000" required></textarea><button type="button" class="emoji-btn" data-target="newThreadBody">😀</button></label>
           <div class="row-fields">
             <label>Download / Repo URL (optional)<input name="softwareUrl" type="url" placeholder="https://" /></label>
             <label>Tags (comma separated)<input name="tags" type="text" maxlength="120" placeholder="python, windows, utility" /></label>

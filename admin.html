@@ -4,6 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Polly Fourms - Admin Panel</title>
+  <meta property="og:title" content="Polly Fourms - Admin Panel" />
+  <meta property="og:description" content="Forum administration and moderation." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://ezzp024.github.io/polly-fourms/admin.html" />
+  <meta name="twitter:card" content="summary" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700;800&family=Literata:opsz,wght@7..72,700&display=swap" rel="stylesheet" />
@@ -52,12 +57,28 @@
         <h2>Site Statistics</h2>
         <div id="adminStats" class="profile-kpis"></div>
 
+        <div class="thread-actions">
+          <label><input type="checkbox" id="autoRefreshToggle" /> Auto-refresh (30s)</label>
+          <button type="button" id="manualRefresh">Refresh Now</button>
+        </div>
+
         <h2>Download Data</h2>
         <div class="thread-actions">
           <button type="button" id="downloadData">Download JSON Export</button>
+          <button type="button" id="downloadCsv">Download CSV</button>
+        </div>
+
+        <div id="bulkActionsBar" class="bulk-actions-bar hidden-block">
+          <span id="bulkSelectedCount">0</span> selected
+          <button type="button" data-bulk-action="ban">Ban Selected</button>
+          <button type="button" data-bulk-action="delete">Delete Selected</button>
+          <button type="button" data-bulk-action="hide">Hide Selected</button>
         </div>
 
         <h2>Registered Users (Forum Members)</h2>
+        <div class="row-fields">
+          <input id="userFilter" type="search" placeholder="Filter users by name..." />
+        </div>
         <table class="forum-table">
           <thead>
             <tr>
@@ -72,6 +93,13 @@
         </table>
 
         <h2>Banned Users</h2>
+        <div class="row-fields">
+          <input id="banFilter" type="search" placeholder="Filter bans by user/reason..." />
+          <div class="date-range">
+            <label>From <input type="date" id="banDateFrom" /></label>
+            <label>To <input type="date" id="banDateTo" /></label>
+          </div>
+        </div>
         <table class="forum-table">
           <thead>
             <tr>
@@ -86,6 +114,13 @@
         </table>
 
         <h2>Open Reports</h2>
+        <div class="row-fields">
+          <input id="reportFilter" type="search" placeholder="Filter reports by reason/reporter..." />
+          <div class="date-range">
+            <label>From <input type="date" id="reportDateFrom" /></label>
+            <label>To <input type="date" id="reportDateTo" /></label>
+          </div>
+        </div>
         <table class="forum-table">
           <thead>
             <tr>
@@ -99,10 +134,31 @@
           <tbody id="reportRows"></tbody>
         </table>
 
-        <h2>Thread Controls</h2>
+        <h2>User Activity Log</h2>
+        <div class="row-fields">
+          <input id="userActivitySearch" type="search" placeholder="Search user activity..." />
+          <button type="button" id="refreshLogs">Refresh Logs</button>
+        </div>
         <table class="forum-table">
           <thead>
             <tr>
+              <th>Timestamp</th>
+              <th>User</th>
+              <th>Action</th>
+              <th>Target</th>
+            </tr>
+          </thead>
+          <tbody id="activityLogRows"></tbody>
+        </table>
+
+        <h2>Thread Controls</h2>
+        <div class="row-fields">
+          <input id="threadFilter" type="search" placeholder="Filter threads by title/flags..." />
+        </div>
+        <table class="forum-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" class="bulk-checkbox" id="selectAllThreads" /></th>
               <th>Thread</th>
               <th>Flags</th>
               <th>Management</th>

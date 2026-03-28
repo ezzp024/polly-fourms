@@ -5,6 +5,9 @@
     formatDate,
     renderPager,
     hasModeratorSession,
+    ensureActionAccess,
+    showPageNotice,
+    clearPageNotice,
     profileLink,
     buildMemberStats,
     toHandle,
@@ -15,6 +18,10 @@
   const api = window.PollyApi.createApi();
 
   initIdentityForm();
+
+  if (window.PollyCommon && window.PollyCommon.refreshSessionNav) {
+    await window.PollyCommon.refreshSessionNav();
+  }
 
   const searchInput = document.getElementById("releaseSearch");
   const releaseSort = document.getElementById("releaseSort");
@@ -28,6 +35,14 @@
   let comments = [];
   let memberStats = new Map();
   let canModerate = false;
+
+  async function safeLog(action, targetType, targetId, details) {
+    try {
+      await api.createModerationLog(action, targetType, targetId, details || {});
+    } catch {
+      // ignore logging issues if table not migrated yet
+    }
+  }
 
   function render() {
     const query = searchInput.value.trim().toLowerCase();
@@ -83,6 +98,7 @@
                 <p class="post-meta">Replies: ${countByPost.get(post.id) || 0}</p>
                 ${post.software_url ? `<p><a href="${escapeHtml(post.software_url)}" target="_blank" rel="noopener noreferrer">Download / Repository</a></p>` : ""}
                 <p class="release-actions"><button type="button" data-action="report" data-id="${post.id}">Report</button></p>
+                ${canModerate ? `<div class="mod-tools"><button type="button" data-action="pin" data-id="${post.id}" data-state="${post.is_pinned ? "1" : "0"}">${post.is_pinned ? "Unpin" : "Pin"}</button><button type="button" data-action="sticky" data-id="${post.id}" data-state="${post.is_sticky ? "1" : "0"}">${post.is_sticky ? "Unsticky" : "Sticky"}</button><button type="button" data-action="lock" data-id="${post.id}" data-state="${post.is_locked ? "1" : "0"}">${post.is_locked ? "Unlock" : "Lock"}</button><button type="button" data-action="solve" data-id="${post.id}" data-state="${post.is_solved ? "1" : "0"}">${post.is_solved ? "Unsolve" : "Solved"}</button><button type="button" data-action="hide" data-id="${post.id}" data-state="${post.is_hidden ? "1" : "0"}">${post.is_hidden ? "Unhide" : "Hide"}</button><button type="button" data-action="remove-link" data-id="${post.id}">Remove Link</button></div>` : ""}
               </article>
             `;
           })
@@ -123,32 +139,76 @@
     if (!(target instanceof HTMLElement) || target.tagName !== "BUTTON") return;
     const action = target.getAttribute("data-action");
     const postId = target.getAttribute("data-id");
-    if (action !== "report" || !postId) return;
+    if (!action || !postId) return;
 
-    const user = await window.PollyCommon.getAuthUser();
-    if (!user) {
-      alert("Please login first.");
-      window.location.href = `auth.html?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    if (canModerate && ["pin", "sticky", "lock", "solve", "hide", "remove-link"].includes(action)) {
+      const current = posts.find((p) => p.id === postId);
+      if (!current) return;
+
+      try {
+        if (action === "pin") {
+          await api.updatePost(postId, { is_pinned: !current.is_pinned });
+          await safeLog("toggle_pin", "post", postId, { value: !current.is_pinned, view: "releases" });
+        }
+        if (action === "sticky") {
+          await api.updatePost(postId, { is_sticky: !current.is_sticky });
+          await safeLog("toggle_sticky", "post", postId, { value: !current.is_sticky, view: "releases" });
+        }
+        if (action === "lock") {
+          await api.updatePost(postId, { is_locked: !current.is_locked });
+          await safeLog("toggle_lock", "post", postId, { value: !current.is_locked, view: "releases" });
+        }
+        if (action === "solve") {
+          await api.updatePost(postId, { is_solved: !current.is_solved });
+          await safeLog("toggle_solved", "post", postId, { value: !current.is_solved, view: "releases" });
+        }
+        if (action === "hide") {
+          const nextHidden = !current.is_hidden;
+          let reason = current.hidden_reason || "";
+          if (nextHidden) {
+            reason = prompt("Reason for hiding this release thread:", "Needs moderator review") || "Needs moderator review";
+          }
+          await api.updatePost(postId, { is_hidden: nextHidden, hidden_reason: nextHidden ? reason : "" });
+          await safeLog("toggle_hidden", "post", postId, { value: nextHidden, reason, view: "releases" });
+        }
+        if (action === "remove-link") {
+          await api.clearPostLink(postId);
+          await safeLog("remove_link", "post", postId, { view: "releases" });
+        }
+
+        [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
+        memberStats = buildMemberStats(posts, comments);
+        posts = posts.filter((p) => p.category === "software");
+        render();
+      } catch (error) {
+        showPageNotice(`Moderation action failed: ${error.message || String(error)}`, "error", 5200);
+      }
       return;
     }
 
-    const profile = await window.PollyCommon.fetchMyProfile();
-    if (!profile || !profile.display_name) {
-      alert("Set your display name in Profile settings first.");
-      window.location.href = "profile.html?setup=1";
+    if (action !== "report") return;
+
+    const access = await ensureActionAccess(api, {
+      actionLabel: "report this release",
+      nextPath: `${window.location.pathname.split("/").pop()}${window.location.search}`,
+      requireProfile: true,
+      checkBan: true
+    });
+    if (!access.ok) {
+      showPageNotice(access.message, "warning", 4600);
+      if (access.redirect) {
+        window.location.href = access.redirect;
+      }
       return;
     }
 
-    const nickname = profile.display_name;
+    clearPageNotice();
+
+    const nickname = access.displayName;
 
     const gate = canPerform("create_report", 20000);
     if (!gate.ok) {
-      alert(`Please wait ${formatWaitMs(gate.nextAllowedIn)} before sending another report.`);
-      return;
-    }
-
-    if (await api.isNicknameBanned(nickname)) {
-      alert("Your account is currently banned from reporting.");
+      showPageNotice(`Please wait ${formatWaitMs(gate.nextAllowedIn)} before sending another report.`, "warning", 4200);
       return;
     }
 
@@ -158,12 +218,13 @@
     try {
       await api.createReport({ post_id: postId, reason, reporter_name: nickname });
       markPerformed("create_report");
+      showPageNotice("Report submitted successfully.", "success", 2400);
       target.textContent = "Reported";
       setTimeout(() => {
         target.textContent = "Report";
       }, 1300);
     } catch (error) {
-      alert(`Could not submit report: ${error.message || String(error)}`);
+      showPageNotice(`Could not submit report: ${error.message || String(error)}`, "error", 5200);
     }
   });
 })();

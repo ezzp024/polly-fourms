@@ -16,6 +16,10 @@ Current UI/features include:
 - sticky/pinned threads plus hidden thread queue
 - reporting workflow and moderator/admin console
 - secured admin panel routing
+- moderator quick actions available in thread, section, release, and admin views
+- profile account state shows ban-related posting/reply/reporting restrictions
+- unified action access checks (login, email verification, display-name gate, ban gate)
+- admin panel live filters for users, bans, reports, and thread controls
 
 The site works in two modes:
 
@@ -94,6 +98,32 @@ Wait 1-2 minutes for GitHub Pages redeploy, then open:
 
 `https://ezzp024.github.io/polly-fourms/`
 
+## 2.1) Verify RLS/security quickly
+
+Run this from repo root:
+
+```bash
+node rls-check.js
+```
+
+This runs anonymous access probes (insert/update/report-read blocks).
+
+To include authenticated **non-admin** checks, provide a non-admin account:
+
+```bash
+NON_ADMIN_EMAIL="member@example.com" NON_ADMIN_PASSWORD="your-password" node rls-check.js
+```
+
+Optional:
+
+- `NON_ADMIN_DISPLAY_NAME` to control the profile name used by the probe.
+
+If any check fails, re-run the latest `supabase-setup.sql` and then run `node rls-check.js` again.
+
+Important:
+
+- Re-run `supabase-setup.sql` after pulling latest changes so owner-update and profile-identity guard triggers are active.
+
 ## 3) Publish with free GitHub domain
 
 1. Create a GitHub repo, for example: `polly-forums`.
@@ -111,4 +141,5 @@ If you want the exact project name to look like "Polly Fourms", name your repo `
 ## Notes
 
 - This is a lightweight forum starter.
-- For moderation and abuse protection, add CAPTCHA and server-side validation later.
+- The latest SQL includes owner-update guard triggers so non-admin users cannot change moderation fields via direct API.
+- For stronger abuse protection at scale, add CAPTCHA or edge middleware later.

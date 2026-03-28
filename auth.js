@@ -55,6 +55,24 @@
       : `Logged in as ${email}.`;
   }
 
+  function authMessage(error, fallback) {
+    const raw = String((error && error.message) || error || fallback || "Request failed");
+    const lower = raw.toLowerCase();
+    if (lower.includes("invalid login credentials")) {
+      return "Login failed: invalid email or password.";
+    }
+    if (lower.includes("email not confirmed") || lower.includes("email_not_confirmed")) {
+      return "Login failed: email is not verified yet. Use resend verification.";
+    }
+    if (lower.includes("rate limit") || lower.includes("over_email_send_rate_limit")) {
+      return "Request blocked: email rate limit exceeded. Please wait and retry.";
+    }
+    if (lower.includes("password should be at least") || lower.includes("weak password")) {
+      return "Register failed: choose a stronger password (10+ characters).";
+    }
+    return `${fallback || "Request failed"}: ${raw}`;
+  }
+
   async function waitForUser(timeoutMs) {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
@@ -123,12 +141,7 @@
       statusEl.textContent = "Registration submitted. Check your email and click the verification link.";
       resendEmail.value = email;
     } catch (error) {
-      const message = String(error.message || error || "Register failed");
-      if (/rate limit/i.test(message)) {
-        statusEl.textContent = "Register failed: email rate limit exceeded. Wait and use resend verification later.";
-      } else {
-        statusEl.textContent = `Register failed: ${message}`;
-      }
+      statusEl.textContent = authMessage(error, "Register failed");
     }
   });
 
@@ -148,12 +161,7 @@
       if (error) throw error;
       statusEl.textContent = "Verification email resent. Please check inbox/spam.";
     } catch (error) {
-      const message = String(error.message || error || "Resend failed");
-      if (/rate limit/i.test(message)) {
-        statusEl.textContent = "Resend failed: email rate limit exceeded. Please wait before retrying.";
-      } else {
-        statusEl.textContent = `Resend failed: ${message}`;
-      }
+      statusEl.textContent = authMessage(error, "Resend failed");
     }
   });
 
@@ -195,7 +203,7 @@
         window.location.replace(next);
       }
     } catch (error) {
-      statusEl.textContent = `Login failed: ${error.message || String(error)}`;
+      statusEl.textContent = authMessage(error, "Login failed");
     }
   });
 
@@ -207,14 +215,25 @@
     await client.auth.signOut();
     document.body.classList.remove("is-admin");
     statusEl.textContent = "Logged out.";
+    if (window.PollyCommon && window.PollyCommon.refreshSessionNav) {
+      await window.PollyCommon.refreshSessionNav();
+    }
   });
 
   await refreshStatus();
   await handleVerificationLanding();
 
-  client.auth.onAuthStateChange((eventName) => {
+  client.auth.onAuthStateChange(async (eventName) => {
     if (eventName === "SIGNED_IN") {
-      void refreshStatus();
+      await refreshStatus();
+    } else if (eventName === "SIGNED_OUT") {
+      document.body.classList.remove("is-admin");
+      statusEl.textContent = "Session ended.";
+      if (window.PollyCommon && window.PollyCommon.refreshSessionNav) {
+        await window.PollyCommon.refreshSessionNav();
+      }
+    } else if (eventName === "TOKEN_REFRESHED") {
+      await refreshStatus();
     }
   });
 })();

@@ -4,6 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Polly Fourms - Thread</title>
+  <meta property="og:title" content="Polly Fourms - Thread Discussion" />
+  <meta property="og:description" content="Join the discussion on this thread." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://ezzp024.github.io/polly-fourms/thread.html" />
+  <meta name="twitter:card" content="summary" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700;800&family=Literata:opsz,wght@7..72,700&display=swap" rel="stylesheet" />
@@ -53,7 +58,9 @@
       <div class="thread-box">
         <div class="thread-actions">
           <button type="button" id="copyThreadLink">Copy Thread Link</button>
+          <button type="button" id="shareThread">Share</button>
           <button type="button" id="quoteReply">Quote Main Post</button>
+          <button type="button" id="bookmarkThread">Bookmark</button>
           <button type="button" id="reportThread">Report Thread</button>
           <button type="button" id="editThread" class="owner-only">Edit</button>
           <button type="button" id="deleteThread" class="owner-only">Delete</button>
@@ -71,7 +78,7 @@
 
         <h3>Post Reply</h3>
         <form id="replyForm" class="compose-box" autocomplete="off">
-          <label>Message<textarea name="body" rows="4" maxlength="500" required></textarea></label>
+          <label>Message<textarea name="body" id="replyBody" rows="4" maxlength="500" required></textarea><button type="button" class="emoji-btn" data-target="replyBody">😀</button></label>
           <button type="submit">Submit Reply</button>
         </form>
       </div>

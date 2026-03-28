@@ -14,6 +14,10 @@
 
   initIdentityForm();
 
+  if (window.PollyCommon && window.PollyCommon.refreshSessionNav) {
+    await window.PollyCommon.refreshSessionNav();
+  }
+
   const boardRows = document.getElementById("boardRows");
   const latestReleases = document.getElementById("latestReleases");
   const recentActivity = document.getElementById("recentActivity");

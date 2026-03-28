@@ -8,14 +8,32 @@
     buildMemberStats,
     toHandle,
     profileLink,
+    ensureActionAccess,
+    showPageNotice,
+    clearPageNotice,
     normalizeTags,
     canPerform,
     markPerformed,
-    formatWaitMs
+    formatWaitMs,
+    isBookmarked,
+    addBookmark,
+    removeBookmark
   } = window.PollyCommon;
   const api = window.PollyApi.createApi();
 
   initIdentityForm();
+
+  if (window.PollyCommon && window.PollyCommon.refreshSessionNav) {
+    await window.PollyCommon.refreshSessionNav();
+  }
+
+  if (window.PollyCommon.initEmojiPickers) {
+    window.PollyCommon.initEmojiPickers();
+  }
+
+  if (window.PollyCommon.initMentionAutocomplete) {
+    window.PollyCommon.initMentionAutocomplete(api);
+  }
 
   const params = new URLSearchParams(window.location.search);
   const id = params.get("id");
@@ -29,6 +47,8 @@
   const relatedThreads = document.getElementById("relatedThreads");
   const quoteReply = document.getElementById("quoteReply");
   const copyThreadLink = document.getElementById("copyThreadLink");
+  const shareThread = document.getElementById("shareThread");
+  const bookmarkThread = document.getElementById("bookmarkThread");
   const reportThread = document.getElementById("reportThread");
   const editThread = document.getElementById("editThread");
   const deleteThread = document.getElementById("deleteThread");
@@ -177,35 +197,32 @@
 
   replyForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const user = await window.PollyCommon.getAuthUser();
-    if (!user) {
-      alert("Please login first.");
-      window.location.href = `auth.html?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    const access = await ensureActionAccess(api, {
+      actionLabel: "reply to this thread",
+      nextPath: `${window.location.pathname.split("/").pop()}${window.location.search}`,
+      requireProfile: true,
+      checkBan: true
+    });
+    if (!access.ok) {
+      showPageNotice(access.message, "warning", 4600);
+      if (access.redirect) {
+        window.location.href = access.redirect;
+      }
       return;
     }
 
-    const profile = await window.PollyCommon.fetchMyProfile();
-    if (!profile || !profile.display_name) {
-      alert("Set your display name in Profile settings first.");
-      window.location.href = "profile.html?setup=1";
-      return;
-    }
+    clearPageNotice();
 
-    const nickname = profile.display_name;
+    const nickname = access.displayName;
 
     if (cachedPost && cachedPost.is_locked && !canModerate) {
-      alert("This thread is locked.");
+      showPageNotice("This thread is locked.", "warning", 4200);
       return;
     }
 
     const gate = canPerform("create_comment", 8000);
     if (!gate.ok) {
-      alert(`Please wait ${formatWaitMs(gate.nextAllowedIn)} before replying again.`);
-      return;
-    }
-
-    if (await api.isNicknameBanned(nickname)) {
-      alert("Your account is currently banned from replying.");
+      showPageNotice(`Please wait ${formatWaitMs(gate.nextAllowedIn)} before replying again.`, "warning", 4200);
       return;
     }
 
@@ -217,9 +234,10 @@
       await api.createComment({ post_id: id, author_name: nickname, body });
       markPerformed("create_comment");
       replyForm.reset();
+      showPageNotice("Reply posted successfully.", "success", 2200);
       await load();
     } catch (error) {
-      alert(`Could not submit reply: ${error.message || String(error)}`);
+      showPageNotice(`Could not submit reply: ${error.message || String(error)}`, "error", 5200);
     }
   });
 
@@ -239,36 +257,79 @@
         copyThreadLink.textContent = "Copy Thread Link";
       }, 1200);
     } catch {
-      alert("Could not copy link. Please copy URL from address bar.");
+      showPageNotice("Could not copy link. Please copy URL from address bar.", "warning", 4200);
+    }
+  });
+
+  if (shareThread) {
+    shareThread.addEventListener("click", async () => {
+      if (!cachedPost) return;
+      const shareData = {
+        title: cachedPost.title || "Polly Fourms Thread",
+        text: "Check out this thread on Polly Fourms",
+        url: window.location.href
+      };
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        try {
+          await navigator.share(shareData);
+        } catch (err) {
+          if (err.name !== "AbortError") {
+            showPageNotice("Could not share. Copy link instead.", "warning", 3000);
+          }
+        }
+      } else {
+        try {
+          await navigator.clipboard.writeText(window.location.href);
+          showPageNotice("Link copied to clipboard!", "success", 2000);
+        } catch {
+          showPageNotice("Could not copy link.", "warning", 3000);
+        }
+      }
+    });
+  }
+
+  if (bookmarkThread && cachedPost && cachedPost.id) {
+    const isSaved = isBookmarked(cachedPost.id);
+    bookmarkThread.textContent = isSaved ? "Remove Bookmark" : "Bookmark";
+  }
+
+  bookmarkThread.addEventListener("click", () => {
+    if (!cachedPost || !cachedPost.id) return;
+    const saved = isBookmarked(cachedPost.id);
+    if (saved) {
+      removeBookmark(cachedPost.id);
+      bookmarkThread.textContent = "Bookmark";
+      showPageNotice("Bookmark removed.", "success", 2000);
+    } else {
+      addBookmark(cachedPost.id);
+      bookmarkThread.textContent = "Remove Bookmark";
+      showPageNotice("Thread bookmarked.", "success", 2000);
     }
   });
 
   reportThread.addEventListener("click", async () => {
     if (!cachedPost) return;
-    const user = await window.PollyCommon.getAuthUser();
-    if (!user) {
-      alert("Please login first.");
-      window.location.href = `auth.html?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    const access = await ensureActionAccess(api, {
+      actionLabel: "report this thread",
+      nextPath: `${window.location.pathname.split("/").pop()}${window.location.search}`,
+      requireProfile: true,
+      checkBan: true
+    });
+    if (!access.ok) {
+      showPageNotice(access.message, "warning", 4600);
+      if (access.redirect) {
+        window.location.href = access.redirect;
+      }
       return;
     }
 
-    const profile = await window.PollyCommon.fetchMyProfile();
-    if (!profile || !profile.display_name) {
-      alert("Set your display name in Profile settings first.");
-      window.location.href = "profile.html?setup=1";
-      return;
-    }
+    clearPageNotice();
 
-    const nickname = profile.display_name;
+    const nickname = access.displayName;
 
     const gate = canPerform("create_report", 20000);
     if (!gate.ok) {
-      alert(`Please wait ${formatWaitMs(gate.nextAllowedIn)} before sending another report.`);
-      return;
-    }
-
-    if (await api.isNicknameBanned(nickname)) {
-      alert("Your account is currently banned from reporting.");
+      showPageNotice(`Please wait ${formatWaitMs(gate.nextAllowedIn)} before sending another report.`, "warning", 4200);
       return;
     }
 
@@ -278,12 +339,13 @@
     try {
       await api.createReport({ post_id: cachedPost.id, reason, reporter_name: nickname });
       markPerformed("create_report");
+      showPageNotice("Report submitted successfully.", "success", 2200);
       reportThread.textContent = "Reported";
       setTimeout(() => {
         reportThread.textContent = "Report Thread";
       }, 1400);
     } catch (error) {
-      alert(`Could not submit report: ${error.message || String(error)}`);
+      showPageNotice(`Could not submit report: ${error.message || String(error)}`, "error", 5200);
     }
   });
 
@@ -317,7 +379,7 @@
       }
       await load();
     } catch (error) {
-      alert(`Moderation action failed: ${error.message || String(error)}`);
+      showPageNotice(`Moderation action failed: ${error.message || String(error)}`, "error", 5200);
     }
   }
 
@@ -341,7 +403,7 @@
     if (!cachedPost) return;
     const isOwner = Boolean(currentUser && cachedPost.author_user_id && currentUser.id === cachedPost.author_user_id);
     if (!isOwner && !canModerate) {
-      alert("You do not have permission to edit this thread.");
+      showPageNotice("You do not have permission to edit this thread.", "warning", 4200);
       return;
     }
     const title = prompt("Edit title", cachedPost.title);
@@ -357,9 +419,10 @@
         tags: normalizeTags(String(tags || ""))
       });
       await safeLog("edit_thread", "post", cachedPost.id, { title: title.trim().slice(0, 120) });
+      showPageNotice("Thread updated.", "success", 2200);
       await load();
     } catch (error) {
-      alert(`Could not edit thread: ${error.message || String(error)}`);
+      showPageNotice(`Could not edit thread: ${error.message || String(error)}`, "error", 5200);
     }
   });
 
@@ -367,7 +430,7 @@
     if (!cachedPost) return;
     const isOwner = Boolean(currentUser && cachedPost.author_user_id && currentUser.id === cachedPost.author_user_id);
     if (!isOwner && !canModerate) {
-      alert("You do not have permission to delete this thread.");
+      showPageNotice("You do not have permission to delete this thread.", "warning", 4200);
       return;
     }
     if (!confirm("Delete this thread permanently?")) return;
@@ -376,7 +439,7 @@
       await safeLog("delete_thread", "post", cachedPost.id, {});
       window.location.href = `forum.html?section=${encodeURIComponent(cachedPost.category || "general")}`;
     } catch (error) {
-      alert(`Could not delete thread: ${error.message || String(error)}`);
+      showPageNotice(`Could not delete thread: ${error.message || String(error)}`, "error", 5200);
     }
   });
 
@@ -390,7 +453,7 @@
 
     const canDelete = canModerate || Boolean(currentUser && commentOwner && currentUser.id === commentOwner);
     if (!canDelete) {
-      alert("You do not have permission to delete this comment.");
+      showPageNotice("You do not have permission to modify this comment.", "warning", 4200);
       return;
     }
 
@@ -406,9 +469,10 @@
       try {
         await api.updateComment(commentId, nextBody.trim().slice(0, 500));
         await safeLog("edit_comment", "comment", commentId, {});
+        showPageNotice("Comment updated.", "success", 2200);
         await load();
       } catch (error) {
-        alert(`Could not edit comment: ${error.message || String(error)}`);
+        showPageNotice(`Could not edit comment: ${error.message || String(error)}`, "error", 5200);
       }
       return;
     }
@@ -420,9 +484,10 @@
     try {
       await api.deleteComment(commentId);
       await safeLog("delete_comment", "comment", commentId, {});
+      showPageNotice("Comment deleted.", "success", 2200);
       await load();
     } catch (error) {
-      alert(`Could not delete comment: ${error.message || String(error)}`);
+      showPageNotice(`Could not delete comment: ${error.message || String(error)}`, "error", 5200);
     }
   });
 })();

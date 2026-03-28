@@ -10,6 +10,9 @@
     renderPager,
     updateTopMetrics,
     hasModeratorSession,
+    ensureActionAccess,
+    showPageNotice,
+    clearPageNotice,
     buildMemberStats,
     profileLink,
     toHandle,
@@ -21,6 +24,18 @@
   const api = window.PollyApi.createApi();
 
   initIdentityForm();
+
+  if (window.PollyCommon && window.PollyCommon.refreshSessionNav) {
+    await window.PollyCommon.refreshSessionNav();
+  }
+
+  if (window.PollyCommon.initEmojiPickers) {
+    window.PollyCommon.initEmojiPickers();
+  }
+
+  if (window.PollyCommon.initMentionAutocomplete) {
+    window.PollyCommon.initMentionAutocomplete(api);
+  }
 
   const params = new URLSearchParams(window.location.search);
   const sectionKey = params.get("section") || "general";
@@ -54,6 +69,14 @@
   let comments = [];
   let memberStats = new Map();
   let canPost = false;
+
+  async function safeLog(action, targetType, targetId, details) {
+    try {
+      await api.createModerationLog(action, targetType, targetId, details || {});
+    } catch {
+      // ignore logging issues if table not migrated yet
+    }
+  }
 
   function setComposerEnabled(enabled, message) {
     canPost = enabled;
@@ -197,29 +220,41 @@
 
   newThreadForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const user = await window.PollyCommon.getAuthUser();
-    if (!user) {
-      alert("Please login first.");
-      window.location.href = `auth.html?next=${encodeURIComponent(`forum.html?section=${section.key}`)}`;
+    const submitBtn = newThreadForm.querySelector('button[type="submit"]');
+    const originalText = submitBtn ? submitBtn.textContent : "";
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Creating...";
+    }
+
+    const access = await ensureActionAccess(api, {
+      actionLabel: "create a thread",
+      nextPath: `forum.html?section=${section.key}`,
+      requireProfile: true,
+      checkBan: true
+    });
+    if (!access.ok) {
+      showPageNotice(access.message, "warning", 4600);
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
+      if (access.redirect) {
+        window.location.href = access.redirect;
+      }
       return;
     }
 
-    const profile = await window.PollyCommon.fetchMyProfile();
-    if (!profile || !profile.display_name) {
-      alert("Set your display name in Profile settings first.");
-      window.location.href = "profile.html?setup=1";
-      return;
-    }
+    clearPageNotice();
 
-    const nickname = profile.display_name;
+    const nickname = access.displayName;
 
     if (!canPost) {
-      alert("Posting is currently unavailable. Check account/profile status.");
-      return;
-    }
-
-    if (await api.isNicknameBanned(nickname)) {
-      alert("Your account is currently banned from posting.");
+      showPageNotice("Posting is currently unavailable. Check account/profile status.", "warning", 4600);
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
       return;
     }
 
@@ -233,7 +268,11 @@
 
     const gate = canPerform("create_thread", 15000);
     if (!gate.ok) {
-      alert(`Please wait ${formatWaitMs(gate.nextAllowedIn)} before creating another thread.`);
+      showPageNotice(`Please wait ${formatWaitMs(gate.nextAllowedIn)} before creating another thread.`, "warning", 4200);
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
       return;
     }
 
@@ -248,6 +287,7 @@
       });
       markPerformed("create_thread");
       newThreadForm.reset();
+      showPageNotice("Thread created successfully.", "success", 2500);
       currentPage = 1;
       [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
       memberStats = buildMemberStats(posts, comments);
@@ -255,7 +295,12 @@
       posts = posts.filter((p) => p.category === section.key);
       renderRows();
     } catch (error) {
-      alert(`Could not create thread: ${error.message || String(error)}`);
+      showPageNotice(`Could not create thread: ${error.message || String(error)}`, "error", 5200);
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
     }
   });
 
@@ -272,15 +317,19 @@
     try {
       if (action === "pin") {
         await api.updatePost(postId, { is_pinned: !current.is_pinned });
+        await safeLog("toggle_pin", "post", postId, { value: !current.is_pinned, view: "forum" });
       }
       if (action === "sticky") {
         await api.updatePost(postId, { is_sticky: !current.is_sticky });
+        await safeLog("toggle_sticky", "post", postId, { value: !current.is_sticky, view: "forum" });
       }
       if (action === "lock") {
         await api.updatePost(postId, { is_locked: !current.is_locked });
+        await safeLog("toggle_lock", "post", postId, { value: !current.is_locked, view: "forum" });
       }
       if (action === "solve") {
         await api.updatePost(postId, { is_solved: !current.is_solved });
+        await safeLog("toggle_solved", "post", postId, { value: !current.is_solved, view: "forum" });
       }
       if (action === "hide") {
         const nextHidden = !current.is_hidden;
@@ -289,6 +338,7 @@
           reason = prompt("Reason for hiding this thread:", "Needs moderator review") || "Needs moderator review";
         }
         await api.updatePost(postId, { is_hidden: nextHidden, hidden_reason: nextHidden ? reason : "" });
+        await safeLog("toggle_hidden", "post", postId, { value: nextHidden, reason, view: "forum" });
       }
 
       [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
@@ -297,7 +347,7 @@
       posts = posts.filter((p) => p.category === section.key);
       renderRows();
     } catch (error) {
-      alert(`Moderation action failed: ${error.message || String(error)}`);
+      showPageNotice(`Moderation action failed: ${error.message || String(error)}`, "error", 5200);
     }
   });
 })();

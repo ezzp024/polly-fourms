@@ -6,7 +6,8 @@
     profileLink,
     escapeHtml,
     buildMemberStats,
-    hasAdminSession
+    hasAdminSession,
+    showPageNotice
   } = window.PollyCommon;
 
   initIdentityForm();
@@ -27,9 +28,23 @@
   const controlRows = document.getElementById("controlRows");
   const userRows = document.getElementById("userRows");
   const banRows = document.getElementById("banRows");
+  const userFilter = document.getElementById("userFilter");
+  const banFilter = document.getElementById("banFilter");
+  const reportFilter = document.getElementById("reportFilter");
+  const threadFilter = document.getElementById("threadFilter");
+  const banDateFrom = document.getElementById("banDateFrom");
+  const banDateTo = document.getElementById("banDateTo");
+  const reportDateFrom = document.getElementById("reportDateFrom");
+  const reportDateTo = document.getElementById("reportDateTo");
+  const userActivitySearch = document.getElementById("userActivitySearch");
+  const activityLogRows = document.getElementById("activityLogRows");
+  const refreshLogsBtn = document.getElementById("refreshLogs");
 
   adminStatus.textContent = "Admin session verified.";
   adminContent.classList.remove("hidden-block");
+
+  const norm = (value) => String(value || "").trim().toLowerCase();
+  const includes = (value, q) => !q || norm(value).includes(q);
 
   function downloadJson(filename, payload) {
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -39,6 +54,36 @@
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function renderActivityLog() {
+    if (!activityLogRows) return;
+
+    const logs = await api.getModerationLogs();
+    const qActivity = norm(userActivitySearch ? userActivitySearch.value : "");
+
+    const filtered = (Array.isArray(logs) ? logs : []).filter((log) => {
+      if (!qActivity) return true;
+      const details = JSON.stringify(log.details || {}).toLowerCase();
+      const actor = String(log.actor_email || "").toLowerCase();
+      return actor.includes(qActivity) || details.includes(qActivity);
+    });
+
+    filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    activityLogRows.innerHTML = filtered.length
+      ? filtered.slice(0, 100).map((log) => {
+          const details = log.details ? JSON.stringify(log.details).slice(0, 60) : "";
+          return `
+            <tr>
+              <td>${formatDate(log.created_at)}</td>
+              <td>${escapeHtml(String(log.actor_email || "system").slice(0, 30))}</td>
+              <td>${escapeHtml(String(log.action).slice(0, 20))}</td>
+              <td>${escapeHtml(details)}</td>
+            </tr>
+          `;
+        }).join("")
+      : '<tr><td colspan="4" class="muted">No activity logs found.</td></tr>';
   }
 
   async function renderAdmin() {
@@ -56,6 +101,52 @@
     const activeBans = bans.filter((b) => b.active !== false);
     const hiddenThreads = posts.filter((p) => p.is_hidden);
 
+    const qUser = norm(userFilter ? userFilter.value : "");
+    const qBan = norm(banFilter ? banFilter.value : "");
+    const qReport = norm(reportFilter ? reportFilter.value : "");
+    const qThread = norm(threadFilter ? threadFilter.value : "");
+
+    const fromBanDate = banDateFrom ? new Date(banDateFrom.value) : null;
+    const toBanDate = banDateTo ? new Date(banDateTo.value) : null;
+    const fromReportDate = reportDateFrom ? new Date(reportDateFrom.value) : null;
+    const toReportDate = reportDateTo ? new Date(reportDateTo.value) : null;
+
+    const filteredMembers = members.filter((member) => includes(member.displayName, qUser));
+    const filteredBans = activeBans.filter((ban) => {
+      const textMatch = includes(ban.nickname, qBan) || includes(ban.reason, qBan);
+      if (!textMatch) return false;
+      if (fromBanDate || toBanDate) {
+        const banDate = new Date(ban.created_at);
+        if (fromBanDate && banDate < fromBanDate) return false;
+        if (toBanDate && banDate > toBanDate) return false;
+      }
+      return true;
+    });
+
+    const byPostId = new Map(posts.map((p) => [p.id, p]));
+    const filteredReports = openReports.filter((report) => {
+      const textMatch = includes(report.reason, qReport) || includes(report.reporter_name, qReport) || includes(byPostId.get(report.post_id) ? byPostId.get(report.post_id).title : "", qReport);
+      if (!textMatch) return false;
+      if (fromReportDate || toReportDate) {
+        const reportDate = new Date(report.created_at);
+        if (fromReportDate && reportDate < fromReportDate) return false;
+        if (toReportDate && reportDate > toReportDate) return false;
+      }
+      return true;
+    });
+
+    const sortedPosts = [...posts].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, 200);
+    const filteredPosts = sortedPosts.filter((post) => {
+      const flags = [
+        post.is_pinned ? "pinned" : "",
+        post.is_sticky ? "sticky" : "",
+        post.is_locked ? "locked" : "",
+        post.is_solved ? "solved" : "",
+        post.is_hidden ? "hidden" : ""
+      ].join(" ");
+      return includes(post.title, qThread) || includes(post.author_name, qThread) || includes(flags, qThread);
+    });
+
     adminStats.innerHTML = `
       <article><strong>${posts.length}</strong><small>Total Threads</small></article>
       <article><strong>${comments.length}</strong><small>Total Replies</small></article>
@@ -65,8 +156,8 @@
       <article><strong>${hiddenThreads.length}</strong><small>Hidden Threads</small></article>
     `;
 
-    userRows.innerHTML = members.length
-      ? members
+    userRows.innerHTML = filteredMembers.length
+      ? filteredMembers
           .map((member) => {
             const rankClass = `badge-rank-${member.rank.toLowerCase()}`;
             return `
@@ -83,10 +174,10 @@
             `;
           })
           .join("")
-      : '<tr><td colspan="5" class="muted">No users found.</td></tr>';
+      : '<tr><td colspan="5" class="muted">No users match this filter.</td></tr>';
 
-    banRows.innerHTML = activeBans.length
-      ? activeBans
+    banRows.innerHTML = filteredBans.length
+      ? filteredBans
           .map(
             (ban) => `
               <tr>
@@ -99,11 +190,10 @@
             `
           )
           .join("")
-      : '<tr><td colspan="5" class="muted">No active bans.</td></tr>';
+      : '<tr><td colspan="5" class="muted">No bans match this filter.</td></tr>';
 
-    const byPostId = new Map(posts.map((p) => [p.id, p]));
-    reportRows.innerHTML = openReports.length
-      ? openReports
+    reportRows.innerHTML = filteredReports.length
+      ? filteredReports
           .map((report) => {
             const post = byPostId.get(report.post_id);
             return `
@@ -117,17 +207,17 @@
             `;
           })
           .join("")
-      : '<tr><td colspan="5" class="muted">No open reports.</td></tr>';
+      : '<tr><td colspan="5" class="muted">No reports match this filter.</td></tr>';
 
-    const sortedPosts = [...posts].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, 200);
-    controlRows.innerHTML = sortedPosts.length
-      ? sortedPosts
+    controlRows.innerHTML = filteredPosts.length
+      ? filteredPosts
           .map((post) => {
             const flags = [post.is_pinned ? "Pinned" : null, post.is_sticky ? "Sticky" : null, post.is_locked ? "Locked" : null, post.is_solved ? "Solved" : null, post.is_hidden ? "Hidden" : null]
               .filter(Boolean)
               .join(", ");
             return `
               <tr>
+                <td><input type="checkbox" class="bulk-checkbox" data-id="${post.id}" ${selectedThreadIds.has(post.id) ? "checked" : ""} /></td>
                 <td><a href="thread.html?id=${post.id}">${escapeHtml(post.title)}</a></td>
                 <td>${flags || "None"}</td>
                 <td>
@@ -143,7 +233,7 @@
             `;
           })
           .join("")
-      : '<tr><td colspan="3" class="muted">No threads yet.</td></tr>';
+      : '<tr><td colspan="3" class="muted">No threads match this filter.</td></tr>';
 
     document.getElementById("downloadData").onclick = () => {
       downloadJson(`polly-fourms-export-${Date.now()}.json`, {
@@ -261,7 +351,7 @@
       await runAction(action, id, state, rawUser);
       await renderAdmin();
     } catch (error) {
-      alert(`Action failed: ${error.message || String(error)}`);
+      showPageNotice(`Action failed: ${error.message || String(error)}`, "error", 5200);
     }
   }
 
@@ -270,10 +360,183 @@
   userRows.addEventListener("click", handleTableActions);
   banRows.addEventListener("click", handleTableActions);
 
+  [userFilter, banFilter, reportFilter, threadFilter].forEach((input) => {
+    if (!input) return;
+    input.addEventListener("input", () => {
+      void renderAdmin();
+    });
+  });
+
+  [banDateFrom, banDateTo, reportDateFrom, reportDateTo].forEach((input) => {
+    if (!input) return;
+    input.addEventListener("change", () => {
+      void renderAdmin();
+    });
+  });
+
+  const bulkActionsBar = document.getElementById("bulkActionsBar");
+  const bulkSelectedCount = document.getElementById("bulkSelectedCount");
+  const selectedThreadIds = new Set();
+
+  const selectAllCheckbox = document.getElementById("selectAllThreads");
+  if (selectAllCheckbox) {
+    selectAllCheckbox.addEventListener("change", (e) => {
+      const checkboxes = controlRows.querySelectorAll(".bulk-checkbox");
+      checkboxes.forEach((cb) => {
+        const id = cb.getAttribute("data-id");
+        if (id) {
+          cb.checked = e.target.checked;
+          if (e.target.checked) {
+            selectedThreadIds.add(id);
+          } else {
+            selectedThreadIds.delete(id);
+          }
+        }
+      });
+      updateBulkBar();
+    });
+  }
+
+  function updateBulkBar() {
+    if (!bulkActionsBar || !bulkSelectedCount) return;
+    const count = selectedThreadIds.size;
+    bulkSelectedCount.textContent = String(count);
+    if (count > 0) {
+      bulkActionsBar.classList.remove("hidden-block");
+    } else {
+      bulkActionsBar.classList.add("hidden-block");
+    }
+  }
+
+  controlRows.addEventListener("change", (e) => {
+    if (e.target.classList.contains("bulk-checkbox")) {
+      const id = e.target.getAttribute("data-id");
+      if (id) {
+        if (e.target.checked) {
+          selectedThreadIds.add(id);
+        } else {
+          selectedThreadIds.delete(id);
+        }
+        updateBulkBar();
+      }
+    }
+  });
+
+  controlRows.addEventListener("click", (e) => {
+    if (e.target.tagName === "INPUT" && e.target.classList.contains("bulk-checkbox")) {
+      return;
+    }
+  });
+
+  const downloadCsvBtn = document.getElementById("downloadCsv");
+  if (downloadCsvBtn) {
+    downloadCsvBtn.addEventListener("click", async () => {
+      try {
+        const [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
+
+        const rows = [
+          ["ID", "Title", "Body", "Category", "Author", "Created At", "Replies"],
+          ...posts.map((p) => [
+            p.id,
+            `"${(p.title || "").replace(/"/g, '""')}"`,
+            `"${(p.body || "").replace(/"/g, '""')}"`,
+            p.category || "",
+            p.author_name || "",
+            p.created_at || "",
+            String(comments.filter((c) => c.post_id === p.id).length)
+          ])
+        ];
+
+        const csv = rows.map((r) => r.join(",")).join("\n");
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `polly-fourms-threads-${Date.now()}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showPageNotice("CSV exported successfully.", "success", 3000);
+      } catch (err) {
+        showPageNotice(`Export failed: ${err.message}`, "error", 5000);
+      }
+    });
+  }
+
+  if (bulkActionsBar) {
+    bulkActionsBar.addEventListener("click", async (e) => {
+      if (e.target.tagName !== "BUTTON") return;
+      const action = e.target.getAttribute("data-bulk-action");
+      if (!action || selectedThreadIds.size === 0) return;
+
+      const ids = [...selectedThreadIds];
+      const confirmed = confirm(`Apply "${action}" to ${ids.length} selected thread(s)?`);
+      if (!confirmed) return;
+
+      try {
+        for (const id of ids) {
+          if (action === "delete") {
+            await api.deletePost(id);
+            await safeLog("bulk_delete", "post", id, {});
+          } else if (action === "hide") {
+            await api.updatePost(id, { is_hidden: true, hidden_reason: "Bulk hidden by admin" });
+            await safeLog("bulk_hide", "post", id, {});
+          }
+        }
+        selectedThreadIds.clear();
+        updateBulkBar();
+        await renderAdmin();
+        showPageNotice(`Bulk ${action} completed for ${ids.length} threads.`, "success", 3000);
+      } catch (err) {
+        showPageNotice(`Bulk action failed: ${err.message}`, "error", 5000);
+      }
+    });
+  }
+
   try {
     await renderAdmin();
+    await renderActivityLog();
   } catch (error) {
     adminStatus.textContent = `Admin backend not ready: ${error.message || String(error)}`;
     adminContent.classList.add("hidden-block");
+  }
+
+  if (refreshLogsBtn) {
+    refreshLogsBtn.addEventListener("click", () => {
+      void renderActivityLog();
+    });
+  }
+
+  if (userActivitySearch) {
+    userActivitySearch.addEventListener("input", () => {
+      void renderActivityLog();
+    });
+  }
+
+  const autoRefreshToggle = document.getElementById("autoRefreshToggle");
+  const manualRefreshBtn = document.getElementById("manualRefresh");
+  let autoRefreshInterval = null;
+
+  if (autoRefreshToggle) {
+    autoRefreshToggle.addEventListener("change", (e) => {
+      if (e.target.checked) {
+        autoRefreshInterval = setInterval(async () => {
+          await renderAdmin();
+          await renderActivityLog();
+        }, 30000);
+        showPageNotice("Auto-refresh enabled (every 30s).", "info", 2000);
+      } else if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        showPageNotice("Auto-refresh disabled.", "info", 2000);
+      }
+    });
+  }
+
+  if (manualRefreshBtn) {
+    manualRefreshBtn.addEventListener("click", async () => {
+      await renderAdmin();
+      await renderActivityLog();
+      showPageNotice("Data refreshed.", "success", 1500);
+    });
   }
 })();

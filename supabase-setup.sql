@@ -25,6 +25,7 @@ create table if not exists public.profiles (
 alter table public.profiles add column if not exists bio text default '';
 alter table public.profiles add column if not exists updated_at timestamptz not null default now();
 create unique index if not exists idx_profiles_display_name_unique on public.profiles (display_name);
+create unique index if not exists idx_profiles_display_name_lower_unique on public.profiles ((lower(display_name)));
 
 create table if not exists public.posts (
   id uuid primary key default gen_random_uuid(),
@@ -216,10 +217,142 @@ begin
 end;
 $$;
 
+create or replace function public.enforce_profile_display_name_rules()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_trimmed text;
+begin
+  v_trimmed := trim(new.display_name);
+  if v_trimmed is null or char_length(v_trimmed) < 2 then
+    raise exception 'Display name must be at least 2 characters.';
+  end if;
+
+  if exists (
+    select 1
+    from public.profiles p
+    where lower(p.display_name) = lower(v_trimmed)
+      and p.user_id <> coalesce(new.user_id, '00000000-0000-0000-0000-000000000000'::uuid)
+  ) then
+    raise exception 'Display name is already in use.';
+  end if;
+
+  new.display_name := v_trimmed;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+create or replace function public.set_row_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+create or replace function public.enforce_post_owner_update_rules()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Login required';
+  end if;
+
+  if public.is_admin() then
+    return new;
+  end if;
+
+  if old.author_user_id is distinct from auth.uid() then
+    raise exception 'Permission denied for this action.';
+  end if;
+
+  if new.author_user_id is distinct from old.author_user_id then
+    raise exception 'Author identity cannot be changed.';
+  end if;
+
+  if new.author_name is distinct from old.author_name then
+    raise exception 'Author name cannot be changed.';
+  end if;
+
+  if new.category is distinct from old.category then
+    raise exception 'Category cannot be changed after publish.';
+  end if;
+
+  if new.is_pinned is distinct from old.is_pinned
+     or new.is_sticky is distinct from old.is_sticky
+     or new.is_hidden is distinct from old.is_hidden
+     or new.is_locked is distinct from old.is_locked
+     or new.is_solved is distinct from old.is_solved
+     or coalesce(new.hidden_reason, '') is distinct from coalesce(old.hidden_reason, '') then
+    raise exception 'Only admins can change moderation fields.';
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.enforce_comment_owner_update_rules()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Login required';
+  end if;
+
+  if public.is_admin() then
+    return new;
+  end if;
+
+  if old.author_user_id is distinct from auth.uid() then
+    raise exception 'Permission denied for this action.';
+  end if;
+
+  if new.post_id is distinct from old.post_id then
+    raise exception 'Comment post cannot be changed.';
+  end if;
+
+  if new.author_user_id is distinct from old.author_user_id then
+    raise exception 'Author identity cannot be changed.';
+  end if;
+
+  if new.author_name is distinct from old.author_name then
+    raise exception 'Author name cannot be changed.';
+  end if;
+
+  if new.created_at is distinct from old.created_at then
+    raise exception 'Created time cannot be changed.';
+  end if;
+
+  return new;
+end;
+$$;
+
 drop trigger if exists trg_posts_rate_limit_insert on public.posts;
 create trigger trg_posts_rate_limit_insert
 before insert on public.posts
 for each row execute function public.enforce_action_rate_limit_trigger('create_thread', '15');
+
+drop trigger if exists trg_posts_updated_at on public.posts;
+create trigger trg_posts_updated_at
+before update on public.posts
+for each row execute function public.set_row_updated_at();
+
+drop trigger if exists trg_profiles_rules_insupd on public.profiles;
+create trigger trg_profiles_rules_insupd
+before insert or update on public.profiles
+for each row execute function public.enforce_profile_display_name_rules();
 
 drop trigger if exists trg_comments_rate_limit_insert on public.comments;
 create trigger trg_comments_rate_limit_insert
@@ -235,6 +368,16 @@ drop trigger if exists trg_posts_validate_links_insupd on public.posts;
 create trigger trg_posts_validate_links_insupd
 before insert or update on public.posts
 for each row execute function public.validate_post_links();
+
+drop trigger if exists trg_posts_owner_guard_update on public.posts;
+create trigger trg_posts_owner_guard_update
+before update on public.posts
+for each row execute function public.enforce_post_owner_update_rules();
+
+drop trigger if exists trg_comments_owner_guard_update on public.comments;
+create trigger trg_comments_owner_guard_update
+before update on public.comments
+for each row execute function public.enforce_comment_owner_update_rules();
 
 create policy "Public read profiles"
 on public.profiles for select

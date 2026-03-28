@@ -473,6 +473,42 @@ body.is-owner .owner-only {
   color: #4b6078;
 }
 
+.page-notice {
+  width: min(1220px, 94vw);
+  margin: 0.8rem auto 0;
+  border: 1px solid #aec2d6;
+  border-radius: 6px;
+  background: #f2f7fd;
+  color: #214661;
+  padding: 0.62rem 0.78rem;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+.page-notice-info {
+  border-color: #a7bdd3;
+  background: #edf5ff;
+  color: #244b69;
+}
+
+.page-notice-success {
+  border-color: #9bc9a7;
+  background: #edf9f0;
+  color: #2e6d3a;
+}
+
+.page-notice-warning {
+  border-color: #d8c28d;
+  background: #fff8e8;
+  color: #725322;
+}
+
+.page-notice-error {
+  border-color: #d8a4a8;
+  background: #fff1f2;
+  color: #7a2f34;
+}
+
 .thread-post {
   border: 1px solid #c7d6e5;
   background: #fdfefe;
@@ -657,5 +693,253 @@ body.is-owner .owner-only {
 
   .row-fields {
     grid-template-columns: 1fr;
+  }
+}
+
+[data-theme="dark"] {
+  --bg: #1a1d23;
+  --bg-strong: #252a33;
+  --ink: #e3e8ef;
+  --ink-muted: #9aa8b8;
+  --line: #3d4654;
+  --panel: #232830;
+  --panel-strong: #2d333d;
+  --nav: #15181e;
+  --nav-accent: #252a33;
+  --primary: #5a9fd4;
+  --gold: #d4a94a;
+  --shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] body {
+  background: linear-gradient(180deg, var(--bg-strong), var(--bg));
+}
+
+[data-theme="dark"] .top-strip {
+  background: linear-gradient(90deg, #15181e, #252a33);
+  border-bottom-color: #3d4654;
+}
+
+[data-theme="dark"] .site-head {
+  background: var(--panel);
+}
+
+[data-theme="dark"] .main-nav {
+  background: linear-gradient(#252a33, #15181e);
+  border-color: #3d4654;
+}
+
+[data-theme="dark"] .nav-inner a {
+  border-right-color: #3d4654;
+}
+
+[data-theme="dark"] .panel {
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+[data-theme="dark"] .panel-head {
+  background: linear-gradient(180deg, #2d333d, #232830);
+  border-color: var(--line);
+}
+
+[data-theme="dark"] .forum-table th {
+  background: #2d333d;
+}
+
+[data-theme="dark"] .forum-table td {
+  border-color: var(--line);
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background: #232830;
+  border-color: #3d4654;
+  color: var(--ink);
+}
+
+[data-theme="dark"] button {
+  background: linear-gradient(#3d4654, #252a33);
+  border-color: #4d5664;
+  color: var(--ink);
+}
+
+[data-theme="dark"] .stack-item {
+  background: #2d333d;
+  border-color: var(--line);
+}
+
+[data-theme="dark"] .comment-item {
+  background: #2d333d;
+}
+
+[data-theme="dark"] .release-card {
+  background: #232830;
+  border-color: var(--line);
+}
+
+[data-theme="dark"] .section-tab {
+  background: #2d333d;
+  border-color: #3d4654;
+  color: #9ec5e8;
+}
+
+[data-theme="dark"] .section-tab.is-active {
+  background: #3d5a80;
+}
+
+[data-theme="dark"] .thread-post {
+  background: #232830;
+  border-color: var(--line);
+}
+
+[data-theme="dark"] .notice-box {
+  background: #2d2a1f;
+  border-color: #5a4a2a;
+  color: #e8d5a8;
+}
+
+[data-theme="dark"] .badge {
+  background: #2d333d;
+  border-color: #4d5664;
+}
+
+[data-theme="dark"] a {
+  color: #7ab8e8;
+}
+
+[data-theme="dark"] .stat-pill {
+  background: #2d333d;
+  border-color: #4d5664;
+}
+
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.theme-toggle:hover {
+  background: var(--panel-strong);
+}
+
+.bulk-actions-bar {
+  background: #e8f0f8;
+  border: 1px solid #a7c2dc;
+  border-radius: 4px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+[data-theme="dark"] .bulk-actions-bar {
+  background: #2d333d;
+  border-color: #3d4654;
+}
+
+.bulk-actions-bar.hidden-block {
+  display: none;
+}
+
+.bulk-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+th .bulk-checkbox,
+td .bulk-checkbox {
+  margin: 0;
+}
+
+.emoji-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  font-size: 1.1rem;
+  cursor: pointer;
+  margin-left: 0.3rem;
+}
+
+.emoji-btn:hover {
+  background: var(--panel-strong);
+}
+
+.account-actions {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.danger-btn {
+  background: linear-gradient(#c44, #a33);
+  border-color: #933;
+  color: #fff;
+}
+
+.danger-btn:hover {
+  background: linear-gradient(#d55, #b44);
+}
+
+@media print {
+  .top-strip,
+  .main-nav,
+  .sidebar,
+  .thread-actions,
+  .compose-box,
+  .pager,
+  .mod-tools,
+  .release-actions,
+  .page-notice,
+  .bulk-actions-bar,
+  .theme-toggle,
+  nav,
+  footer,
+  .identity-form {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+    color: black;
+  }
+
+  .layout-grid {
+    display: block;
+  }
+
+  .panel {
+    border: none;
+    box-shadow: none;
+    page-break-inside: avoid;
+  }
+
+  .thread-post,
+  .comment-item,
+  .release-card,
+  .stack-item {
+    border: 1px solid #ccc;
+    page-break-inside: avoid;
+  }
+
+  a {
+    color: black;
+    text-decoration: underline;
+  }
+
+  a[href]:after {
+    content: " (" attr(href) ")";
   }
 }

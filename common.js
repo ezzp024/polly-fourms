@@ -2,12 +2,42 @@
   const CONFIG = window.POLLY_CONFIG || {};
   const AUTH_STORAGE_KEY = "polly_auth_main";
   const RATE_LIMIT_KEY = "polly_rate_limit";
+  const SESSION_CHECK_KEY = "polly_session_verified";
   let authClient = null;
+  let sessionVerified = false;
+  let storageListenerInitialized = false;
   const identityState = {
     loaded: false,
     user: null,
     profile: null
   };
+
+  function setupStorageListener() {
+    if (storageListenerInitialized) return;
+    storageListenerInitialized = true;
+    
+    window.addEventListener("storage", (event) => {
+      if (event.key === AUTH_STORAGE_KEY || event.key === SESSION_CHECK_KEY) {
+        identityState.loaded = false;
+        identityState.user = null;
+        identityState.profile = null;
+        sessionVerified = false;
+        
+        const nav = document.querySelector("nav.main-nav .nav-inner");
+        if (nav) {
+          const loginLink = nav.querySelector('a[href="auth.html"]');
+          if (loginLink) {
+            loginLink.textContent = "Login";
+            loginLink.href = "auth.html";
+          }
+          const logoutNode = nav.querySelector('[data-session-link="logout"]');
+          if (logoutNode) logoutNode.remove();
+        }
+        
+        document.body.classList.remove("is-admin");
+      }
+    });
+  }
 
   function hasSupabaseConfig() {
     return (
@@ -48,6 +78,146 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#39;");
+  }
+
+  function parseMarkdown(text) {
+    if (!text) return "";
+    const escaped = escapeHtml(text);
+    let html = escaped;
+    html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+    html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
+    html = html.replace(/^# (.+)$/gm, "<h1>$1</h1>");
+    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
+    html = html.replace(/~~(.+?)~~/g, "<del>$1</del>");
+    html = html.replace(/`(.+?)`/g, "<code>$1</code>");
+    html = html.replace(/\n/g, "<br>");
+    return html;
+  }
+
+  const EMOJI_PICKER_EMOJIS = [
+    "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "😊",
+    "😇", "🙂", "😉", "😍", "🤔", "😌", "😔", "😴", "🤯", "😎",
+    "👍", "👎", "👏", "🙌", "🤝", "💪", "✌️", "🤞", "❤️", "💔",
+    "🎉", "🔥", "⭐", "✨", "💡", "⚠️", "✅", "❌", "➡️", "⬇️"
+  ];
+
+  function initEmojiPickers() {
+    document.querySelectorAll(".emoji-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const targetId = btn.getAttribute("data-target");
+        const textarea = document.getElementById(targetId);
+        if (!textarea) return;
+
+        let picker = btn.nextElementSibling;
+        if (!picker || !picker.classList.contains("emoji-picker")) {
+          picker = document.createElement("div");
+          picker.className = "emoji-picker";
+          picker.style.cssText =
+            "position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:0.4rem;display:grid;grid-template-columns:repeat(8,1fr);gap:0.2rem;z-index:1000;max-width:280px;box-shadow:var(--shadow);";
+          EMOJI_PICKER_EMOJIS.forEach((emoji) => {
+            const span = document.createElement("button");
+            span.type = "button";
+            span.textContent = emoji;
+            span.style.cssText = "background:transparent;border:none;font-size:1.2rem;cursor:pointer;padding:0.1rem;";
+            span.addEventListener("click", (ev) => {
+              ev.preventDefault();
+              const start = textarea.selectionStart;
+              const end = textarea.selectionEnd;
+              const text = textarea.value;
+              textarea.value = text.slice(0, start) + emoji + text.slice(end);
+              textarea.focus();
+              textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+              picker.remove();
+            });
+            picker.appendChild(span);
+          });
+          btn.parentElement.style.position = "relative";
+          btn.parentElement.appendChild(picker);
+        } else {
+          picker.remove();
+        }
+      });
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!e.target.classList.contains("emoji-btn")) {
+        document.querySelectorAll(".emoji-picker").forEach((p) => p.remove());
+      }
+    });
+  }
+
+  function initMentionAutocomplete(api) {
+    document.querySelectorAll("textarea").forEach((textarea) => {
+      if (textarea.dataset.mentionInitialized) return;
+      textarea.dataset.mentionInitialized = "true";
+
+      textarea.addEventListener("input", async (e) => {
+        const text = textarea.value;
+        const cursorPos = textarea.selectionStart;
+        const lastAt = text.lastIndexOf("@", cursorPos - 1);
+
+        if (lastAt === -1) {
+          document.querySelectorAll(".mention-dropdown").forEach((d) => d.remove());
+          return;
+        }
+
+        const searchText = text.slice(lastAt + 1, cursorPos);
+        if (searchText.includes(" ") || searchText.length < 1) {
+          document.querySelectorAll(".mention-dropdown").forEach((d) => d.remove());
+          return;
+        }
+
+        try {
+          const [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
+          const names = new Set();
+          posts.forEach((p) => { if (p.author_name) names.add(p.author_name); });
+          comments.forEach((c) => { if (c.author_name) names.add(c.author_name); });
+          
+          const matches = [...names]
+            .filter((n) => n.toLowerCase().includes(searchText.toLowerCase()))
+            .slice(0, 5);
+
+          if (matches.length === 0) {
+            document.querySelectorAll(".mention-dropdown").forEach((d) => d.remove());
+            return;
+          }
+
+          let dropdown = document.querySelector(".mention-dropdown");
+          if (!dropdown) {
+            dropdown = document.createElement("div");
+            dropdown.className = "mention-dropdown";
+            dropdown.style.cssText = "position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:0.3rem;z-index:1000;max-height:150px;overflow-y:auto;box-shadow:var(--shadow);";
+            textarea.parentElement.style.position = "relative";
+            textarea.parentElement.appendChild(dropdown);
+          }
+
+          dropdown.innerHTML = matches.map((name) =>
+            `<div class="mention-item" style="padding:0.3rem 0.5rem;cursor:pointer:hover{background:var(--panel-strong)}">${escapeHtml(name)}</div>`
+          ).join("");
+
+          dropdown.querySelectorAll(".mention-item").forEach((item) => {
+            item.addEventListener("click", () => {
+              const before = text.slice(0, lastAt);
+              const after = text.slice(cursorPos);
+              textarea.value = before + "@" + item.textContent + " " + after;
+              textarea.focus();
+              textarea.setSelectionRange(before.length + item.textContent.length + 2, before.length + item.textContent.length + 2);
+              dropdown.remove();
+            });
+          });
+        } catch (err) {
+          console.warn("Mention fetch failed:", err);
+        }
+      });
+
+      textarea.addEventListener("blur", () => {
+        setTimeout(() => {
+          document.querySelectorAll(".mention-dropdown").forEach((d) => d.remove());
+        }, 200);
+      });
+    });
   }
 
   function formatDate(iso) {
@@ -292,8 +462,15 @@
     if (!hasSupabase) return null;
     if (!authClient) {
       authClient = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
-        auth: { storageKey: AUTH_STORAGE_KEY }
+        auth: { 
+          storageKey: AUTH_STORAGE_KEY,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true
+        }
       });
+      
+      setupStorageListener();
     }
     return authClient;
   }
@@ -344,6 +521,120 @@
     return next;
   }
 
+  function ensurePageNoticeNode() {
+    let node = document.getElementById("pageNotice");
+    if (node) return node;
+
+    const main = document.querySelector("main");
+    if (!main || !main.parentElement) return null;
+
+    node = document.createElement("div");
+    node.id = "pageNotice";
+    node.className = "page-notice hidden-block";
+    main.parentElement.insertBefore(node, main);
+    return node;
+  }
+
+  function showPageNotice(message, type, timeoutMs) {
+    const node = ensurePageNoticeNode();
+    if (!node) return;
+
+    const kind = type === "error" || type === "success" || type === "warning" ? type : "info";
+    node.className = `page-notice page-notice-${kind}`;
+    node.textContent = String(message || "");
+
+    const ms = Number(timeoutMs || 0);
+    if (ms > 0) {
+      setTimeout(() => {
+        if (node.textContent === String(message || "")) {
+          node.className = "page-notice hidden-block";
+          node.textContent = "";
+        }
+      }, ms);
+    }
+  }
+
+  function clearPageNotice() {
+    const node = document.getElementById("pageNotice");
+    if (!node) return;
+    node.className = "page-notice hidden-block";
+    node.textContent = "";
+  }
+
+  function getCurrentRelativePath() {
+    const file = String(window.location.pathname || "").split("/").pop() || "index.html";
+    const search = String(window.location.search || "");
+    return `${file}${search}`;
+  }
+
+  async function ensureActionAccess(api, options) {
+    const opts = options || {};
+    const actionLabel = String(opts.actionLabel || "perform this action");
+    const nextPath = opts.nextPath || getCurrentRelativePath();
+    const requireProfile = opts.requireProfile !== false;
+    const checkBan = opts.checkBan !== false;
+
+    const user = await getAuthUser();
+    if (!user) {
+      return {
+        ok: false,
+        user: null,
+        profile: null,
+        displayName: "",
+        message: `Please login to ${actionLabel}.`,
+        redirect: `auth.html?next=${encodeURIComponent(nextPath)}`
+      };
+    }
+
+    if (hasSupabaseConfig() && !user.email_confirmed_at) {
+      return {
+        ok: false,
+        user,
+        profile: null,
+        displayName: "",
+        message: "Please verify your email before continuing.",
+        redirect: "auth.html"
+      };
+    }
+
+    const profile = requireProfile ? await fetchMyProfile() : null;
+    const displayName = profile && profile.display_name ? String(profile.display_name) : "";
+
+    if (requireProfile && !displayName) {
+      return {
+        ok: false,
+        user,
+        profile,
+        displayName: "",
+        message: "Set your display name in Profile settings first.",
+        redirect: "profile.html?setup=1"
+      };
+    }
+
+    if (checkBan && api && typeof api.isNicknameBanned === "function") {
+      const banned = await api.isNicknameBanned(displayName);
+      if (banned) {
+        return {
+          ok: false,
+          user,
+          profile,
+          displayName,
+          message: "Your account is currently banned from this action.",
+          redirect: "profile.html"
+        };
+      }
+    }
+
+    return {
+      ok: true,
+      user,
+      profile,
+      displayName,
+      message: "",
+      redirect: ""
+    };
+  }
+
   async function initSessionNav() {
     const nav = document.querySelector("nav.main-nav .nav-inner");
     if (!nav) return;
@@ -352,7 +643,9 @@
     if (!loginLink) return;
 
     const user = await getAuthUser();
-    if (!user) {
+    const isLoggedIn = Boolean(user);
+
+    if (!isLoggedIn) {
       loginLink.textContent = "Login";
       loginLink.href = "auth.html";
       const logoutNode = nav.querySelector('[data-session-link="logout"]');
@@ -363,29 +656,59 @@
     loginLink.textContent = "Account";
     loginLink.href = "auth.html";
 
-    if (!nav.querySelector('[data-session-link="logout"]')) {
-      const logout = document.createElement("a");
-      logout.href = "#";
-      logout.dataset.sessionLink = "logout";
-      logout.textContent = "Logout";
-      logout.addEventListener("click", async (event) => {
-        event.preventDefault();
-        const client = createAuthClient();
-        if (client) {
-          await client.auth.signOut();
-        }
-        window.location.href = "index.html";
-      });
-      nav.append(logout);
-    }
+    const existingLogout = nav.querySelector('[data-session-link="logout"]');
+    if (existingLogout) return;
+
+    const logout = document.createElement("a");
+    logout.href = "#";
+    logout.dataset.sessionLink = "logout";
+    logout.textContent = "Logout";
+    logout.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const client = createAuthClient();
+      if (client) {
+        await client.auth.signOut();
+      }
+      localStorage.removeItem(SESSION_CHECK_KEY);
+      window.location.href = "index.html";
+    });
+    nav.appendChild(logout);
+  }
+
+  async function refreshSessionNav() {
+    await initSessionNav();
   }
 
   async function getAuthUser() {
     const client = createAuthClient();
     if (!client) return null;
-    const { data, error } = await client.auth.getUser();
-    if (error) return null;
-    return data.user || null;
+    
+    try {
+      const { data, error } = await client.auth.getUser();
+      if (error) {
+        console.warn("Auth getUser error:", error.message);
+        return null;
+      }
+      
+      if (data && data.user) {
+        sessionVerified = true;
+        localStorage.setItem(SESSION_CHECK_KEY, Date.now().toString());
+        return data.user;
+      }
+      
+      const stored = localStorage.getItem(SESSION_CHECK_KEY);
+      if (stored) {
+        const storedTime = parseInt(stored, 10);
+        if (Date.now() - storedTime < 5000) {
+          return null;
+        }
+      }
+      
+      return null;
+    } catch (err) {
+      console.warn("Auth getUser exception:", err.message);
+      return null;
+    }
   }
 
   async function getAuthedEmail() {
@@ -469,6 +792,89 @@
     }
   }
 
+  const THEME_STORAGE_KEY = "polly_theme";
+  const DARK = "dark";
+  const LIGHT = "light";
+
+  function getCurrentTheme() {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === DARK || stored === LIGHT) return stored;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? DARK : LIGHT;
+  }
+
+  function setTheme(theme) {
+    const valid = theme === DARK || theme === LIGHT ? theme : LIGHT;
+    document.documentElement.setAttribute("data-theme", valid);
+    localStorage.setItem(THEME_STORAGE_KEY, valid);
+    updateThemeButton();
+    return valid;
+  }
+
+  function toggleTheme() {
+    const current = getCurrentTheme();
+    return setTheme(current === DARK ? LIGHT : DARK);
+  }
+
+  const BOOKMARKS_KEY = "polly_bookmarks";
+
+  function getBookmarks() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(BOOKMARKS_KEY) || "[]"));
+    } catch {
+      return new Set();
+    }
+  }
+
+  function addBookmark(threadId) {
+    const bookmarks = getBookmarks();
+    bookmarks.add(threadId);
+    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([...bookmarks]));
+    return bookmarks.size;
+  }
+
+  function removeBookmark(threadId) {
+    const bookmarks = getBookmarks();
+    bookmarks.delete(threadId);
+    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([...bookmarks]));
+    return bookmarks.size;
+  }
+
+  function isBookmarked(threadId) {
+    return getBookmarks().has(threadId);
+  }
+
+  function updateThemeButton() {
+    const btn = document.getElementById("themeToggle");
+    if (!btn) return;
+    const isDark = getCurrentTheme() === DARK;
+    btn.textContent = isDark ? "☀️" : "🌙";
+    btn.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
+  }
+
+  function initThemeToggle() {
+    const nav = document.querySelector(".nav-inner");
+    if (!nav) return;
+
+    let btn = document.getElementById("themeToggle");
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.id = "themeToggle";
+      btn.className = "theme-toggle";
+      btn.type = "button";
+    }
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      toggleTheme();
+    });
+
+    if (!btn.parentElement) {
+      nav.appendChild(btn);
+    }
+
+    setTheme(getCurrentTheme());
+  }
+
   window.PollyCommon = {
     SECTION_META,
     escapeHtml,
@@ -484,7 +890,11 @@
     markPerformed,
     formatWaitMs,
     sanitizeNextPath,
+    ensureActionAccess,
+    showPageNotice,
+    clearPageNotice,
     initSessionNav,
+    refreshSessionNav,
     getAuthUser,
     getAuthedEmail,
     fetchMyProfile,
@@ -503,9 +913,83 @@
     normalizeTags,
     getSection,
     renderPager,
-    updateTopMetrics
+    updateTopMetrics,
+    initThemeToggle,
+    getCurrentTheme,
+    setTheme,
+    initKeyboardShortcuts,
+    parseMarkdown,
+    getBookmarks,
+    addBookmark,
+    removeBookmark,
+    isBookmarked,
+    initEmojiPickers,
+    initMentionAutocomplete
   };
+
+  function initKeyboardShortcuts() {
+    document.addEventListener("keydown", (e) => {
+      const target = e.target;
+      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+
+      if (e.key === "/" && !isInput) {
+        e.preventDefault();
+        const firstInput = document.querySelector("input[type='search']") || document.querySelector("input:not([type])");
+        if (firstInput) {
+          firstInput.focus();
+        }
+      }
+
+      if (e.key === "?" && !isInput) {
+        e.preventDefault();
+        const help = document.getElementById("shortcutsHelp");
+        if (help) {
+          help.classList.toggle("hidden-block");
+        }
+      }
+
+      if (e.key === "Escape") {
+        const help = document.getElementById("shortcutsHelp");
+        if (help && !help.classList.contains("hidden-block")) {
+          help.classList.add("hidden-block");
+        }
+        if (isInput) {
+          target.blur();
+        }
+      }
+
+      if (e.key === "c" && !isInput && e.altKey) {
+        e.preventDefault();
+        const composer = document.querySelector("#newThreadForm, #replyForm, .compose-box");
+        if (composer) {
+          const textarea = composer.querySelector("textarea");
+          if (textarea) {
+            textarea.focus();
+          }
+        }
+      }
+
+      if (e.key === "n" && !isInput && e.altKey) {
+        e.preventDefault();
+        window.location.href = "forum.html?section=general";
+      }
+
+      if (e.key === "h" && !isInput && e.altKey) {
+        e.preventDefault();
+        window.location.href = "index.html";
+      }
+    });
+  }
 
   void applyAdminVisibility();
   void initSessionNav();
+  void initThemeToggle();
+  void initKeyboardShortcuts();
+  
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      void initSessionNav();
+      identityState.loaded = false;
+    }
+  });
 })();

@@ -13,6 +13,10 @@
 
   initIdentityForm();
 
+  if (window.PollyCommon && window.PollyCommon.refreshSessionNav) {
+    await window.PollyCommon.refreshSessionNav();
+  }
+
   const profileName = document.getElementById("profileName");
   const profileMeta = document.getElementById("profileMeta");
   const profileCard = document.getElementById("profileCard");
@@ -42,7 +46,14 @@
     const profile = await window.PollyCommon.fetchMyProfile();
     if (profile && profile.display_name) {
       accountDisplayName.value = profile.display_name;
-      accountStatus.textContent = "Your display name is set. You can update it here.";
+      try {
+        const banned = await api.isNicknameBanned(profile.display_name);
+        accountStatus.textContent = banned
+          ? "Your display name is set, but this account is currently banned from posting, replying, and reporting."
+          : "Your display name is set. You can update it here.";
+      } catch {
+        accountStatus.textContent = "Your display name is set. You can update it here.";
+      }
     } else {
       accountStatus.textContent = "Please set your display name. Posting is blocked until you do.";
     }
@@ -76,12 +87,14 @@
     const role = member.rank;
     profileName.textContent = member.displayName;
     profileMeta.textContent = `${role} profile`;
+    const karma = member.score;
+    const karmaLevel = karma >= 25 ? "⭐⭐⭐" : karma >= 10 ? "⭐⭐" : karma >= 5 ? "⭐" : "";
     profileCard.innerHTML = `
       <div class="profile-kpis">
         <article><strong>${member.rank}</strong><small>Rank</small></article>
         <article><strong>${member.threads}</strong><small>Threads</small></article>
         <article><strong>${member.replies}</strong><small>Replies</small></article>
-        <article><strong>${member.score}</strong><small>Activity Score</small></article>
+        <article><strong>${karma}</strong><small>Karma ${karmaLevel}</small></article>
       </div>
     `;
 
@@ -162,4 +175,86 @@
       accountStatus.textContent = `Could not save display name: ${escapeHtml(error.message || String(error))}`;
     }
   });
+
+  const exportDataBtn = document.getElementById("exportDataBtn");
+  const deleteAccountBtn = document.getElementById("deleteAccountBtn");
+
+  if (exportDataBtn) {
+    exportDataBtn.addEventListener("click", async () => {
+      const user = await window.PollyCommon.getAuthUser();
+      if (!user) {
+        alert("Please login first.");
+        return;
+      }
+
+      try {
+        const [allPosts, allComments] = await Promise.all([api.getPosts(), api.getComments()]);
+        const myPosts = allPosts.filter((p) => p.author_user_id === user.id);
+        const myComments = allComments.filter((c) => c.author_user_id === user.id);
+        const profile = await window.PollyCommon.fetchMyProfile();
+
+        const exportData = {
+          exportedAt: new Date().toISOString(),
+          userId: user.id,
+          email: user.email,
+          profile: profile,
+          threads: myPosts,
+          replies: myComments
+        };
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `polly-fourms-data-export-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        alert("Your data has been exported successfully.");
+      } catch (error) {
+        alert(`Export failed: ${error.message}`);
+      }
+    });
+  }
+
+  if (deleteAccountBtn) {
+    deleteAccountBtn.addEventListener("click", async () => {
+      const user = await window.PollyCommon.getAuthUser();
+      if (!user) {
+        alert("Please login first.");
+        return;
+      }
+
+      const confirmed = confirm("Are you sure you want to delete your account? This will remove all your posts, comments, and profile data. This action cannot be undone.");
+      if (!confirmed) return;
+
+      const doubleConfirm = prompt("Type DELETE to confirm account deletion:");
+      if (doubleConfirm !== "DELETE") {
+        alert("Account deletion cancelled.");
+        return;
+      }
+
+      try {
+        const [allPosts, allComments] = await Promise.all([api.getPosts(), api.getComments()]);
+        const myPosts = allPosts.filter((p) => p.author_user_id === user.id);
+        const myComments = allComments.filter((c) => c.author_user_id === user.id);
+
+        for (const post of myPosts) {
+          await api.deletePost(post.id);
+        }
+        for (const comment of myComments) {
+          await api.deleteComment(comment.id);
+        }
+
+        const client = window.PollyCommon.createAuthClient();
+        if (client) {
+          await client.auth.signOut();
+        }
+
+        alert("Your account has been deleted. We're sorry to see you go!");
+        window.location.href = "index.html";
+      } catch (error) {
+        alert(`Account deletion failed: ${error.message}`);
+      }
+    });
+  }
 })();
