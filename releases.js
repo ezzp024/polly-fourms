@@ -4,7 +4,7 @@
     escapeHtml,
     formatDate,
     renderPager,
-    isModerator,
+    hasModeratorSession,
     profileLink,
     buildMemberStats,
     toHandle,
@@ -27,10 +27,7 @@
   let posts = [];
   let comments = [];
   let memberStats = new Map();
-  const canModerate = isModerator();
-  if (canModerate) {
-    document.body.classList.add("is-moderator");
-  }
+  let canModerate = false;
 
   function render() {
     const query = searchInput.value.trim().toLowerCase();
@@ -99,6 +96,10 @@
   }
 
   try {
+    canModerate = await hasModeratorSession();
+    if (canModerate) {
+      document.body.classList.add("is-moderator");
+    }
     [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
     memberStats = buildMemberStats(posts, comments);
     posts = posts.filter((p) => p.category === "software");

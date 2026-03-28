@@ -8,7 +8,7 @@
     updateTopMetrics,
     buildMemberStats,
     profileLink,
-    isModerator
+    hasModeratorSession
   } = window.PollyCommon;
   const api = window.PollyApi.createApi();
 
@@ -22,7 +22,8 @@
 
   try {
     const [postsRaw, comments] = await Promise.all([api.getPosts(), api.getComments()]);
-    const posts = isModerator() ? postsRaw : postsRaw.filter((p) => !p.is_hidden);
+    const canModerate = await hasModeratorSession();
+    const posts = canModerate ? postsRaw : postsRaw.filter((p) => !p.is_hidden);
 
     posts.sort((a, b) => {
       const aPin = a.is_pinned ? 1 : 0;

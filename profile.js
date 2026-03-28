@@ -6,7 +6,7 @@
     buildMemberStats,
     escapeHtml,
     formatDate,
-    isModerator
+    hasModeratorSession
   } = window.PollyCommon;
 
   const api = window.PollyApi.createApi();
@@ -28,6 +28,7 @@
   const targetHandle = toHandle(query.get("user") || "");
 
   let allMembers = [];
+  let canModerate = false;
 
   async function loadAccountSettings() {
     const user = await window.PollyCommon.getAuthUser();
@@ -114,8 +115,9 @@
   }
 
   try {
+    canModerate = await hasModeratorSession();
     const [postsRaw, comments] = await Promise.all([api.getPosts(), api.getComments()]);
-    const posts = isModerator() ? postsRaw : postsRaw.filter((p) => !p.is_hidden);
+    const posts = canModerate ? postsRaw : postsRaw.filter((p) => !p.is_hidden);
     const statsMap = buildMemberStats(posts, comments);
     allMembers = [...statsMap.values()].sort((a, b) => b.score - a.score || a.displayName.localeCompare(b.displayName));
 
@@ -148,7 +150,7 @@
       await window.PollyCommon.refreshIdentity();
       accountStatus.textContent = "Display name saved successfully.";
       const [postsRaw, comments] = await Promise.all([api.getPosts(), api.getComments()]);
-      const posts = isModerator() ? postsRaw : postsRaw.filter((p) => !p.is_hidden);
+      const posts = canModerate ? postsRaw : postsRaw.filter((p) => !p.is_hidden);
       const statsMap = buildMemberStats(posts, comments);
       allMembers = [...statsMap.values()].sort((a, b) => b.score - a.score || a.displayName.localeCompare(b.displayName));
       renderDirectory(allMembers);

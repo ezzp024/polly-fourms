@@ -9,7 +9,7 @@
     formatRelative,
     renderPager,
     updateTopMetrics,
-    isModerator,
+    hasModeratorSession,
     buildMemberStats,
     profileLink,
     toHandle,
@@ -54,10 +54,7 @@
   let comments = [];
   let memberStats = new Map();
 
-  const canModerate = isModerator();
-  if (canModerate) {
-    document.body.classList.add("is-moderator");
-  }
+  let canModerate = false;
 
   function renderRows() {
     const query = searchInput.value.trim().toLowerCase();
@@ -140,6 +137,10 @@
   }
 
   try {
+    canModerate = await hasModeratorSession();
+    if (canModerate) {
+      document.body.classList.add("is-moderator");
+    }
     [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
     memberStats = buildMemberStats(posts, comments);
     updateTopMetrics(posts, comments);

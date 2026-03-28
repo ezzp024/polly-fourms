@@ -409,6 +409,13 @@
     }
   }
 
+  async function hasModeratorSession() {
+    if (!hasSupabaseConfig()) {
+      return isModerator();
+    }
+    return hasAdminSession();
+  }
+
   async function applyAdminVisibility() {
     const isAdmin = await hasAdminSession();
     document.body.classList.toggle("is-admin", isAdmin);
@@ -487,6 +494,7 @@
     getRoleByNickname,
     getCurrentRole,
     isModerator,
+    hasModeratorSession,
     hasAdminSession,
     applyAdminVisibility,
     getNickname,

@@ -4,7 +4,7 @@
     getSection,
     escapeHtml,
     formatDate,
-    isModerator,
+    hasModeratorSession,
     buildMemberStats,
     toHandle,
     profileLink,
@@ -40,10 +40,7 @@
 
   let cachedPost = null;
   let currentUser = null;
-  const canModerate = isModerator();
-  if (canModerate) {
-    document.body.classList.add("is-moderator");
-  }
+  let canModerate = false;
 
   async function safeLog(action, targetType, targetId, details) {
     try {
@@ -153,6 +150,10 @@
   }
 
   try {
+    canModerate = await hasModeratorSession();
+    if (canModerate) {
+      document.body.classList.add("is-moderator");
+    }
     await load();
   } catch (error) {
     threadPost.innerHTML = `<p class="muted">Could not load thread: ${escapeHtml(error.message || String(error))}</p>`;
