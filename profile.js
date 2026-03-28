@@ -203,8 +203,9 @@
 
         const exportData = {
           exportedAt: new Date().toISOString(),
-          userId: user.id,
-          email: user.email,
+          userId: user?.id || null,
+          email: user?.email || null,
+          displayName: displayName,
           profile: profile,
           threads: myPosts,
           replies: myComments
@@ -227,8 +228,10 @@
   if (deleteAccountBtn) {
     deleteAccountBtn.addEventListener("click", async () => {
       const user = await window.PollyCommon.getAuthUser();
-      if (!user) {
-        alert("Please login first.");
+      const profile = await window.PollyCommon.fetchMyProfile();
+      
+      if (!user && !profile) {
+        alert("Please login or set a display name first.");
         return;
       }
 
@@ -242,9 +245,16 @@
       }
 
       try {
+        const displayName = profile?.display_name || "";
         const [allPosts, allComments] = await Promise.all([api.getPosts(), api.getComments()]);
-        const myPosts = allPosts.filter((p) => p.author_user_id === user.id);
-        const myComments = allComments.filter((c) => c.author_user_id === user.id);
+        const myPosts = allPosts.filter((p) => 
+          (user && p.author_user_id === user.id) || 
+          (!user && p.author_name === displayName)
+        );
+        const myComments = allComments.filter((c) => 
+          (user && c.author_user_id === user.id) || 
+          (!user && c.author_name === displayName)
+        );
 
         for (const post of myPosts) {
           await api.deletePost(post.id);
