@@ -1,6 +1,13 @@
 create extension if not exists pgcrypto;
 
--- Admin email configured for this project.
+create table if not exists public.admin_users (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  granted_at timestamptz not null default now(),
+  granted_by text,
+  note text
+);
+
+-- Admin identity is configured via admin_users table or JWT app_metadata.role='admin'.
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -8,7 +15,13 @@ stable
 security definer
 set search_path = public
 as $$
-  select (auth.jwt() ->> 'email') = 'ezzp024@gmail.com';
+  select
+    coalesce((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin', false)
+    or exists (
+      select 1
+      from public.admin_users a
+      where a.user_id = auth.uid()
+    );
 $$;
 
 revoke all on function public.is_admin() from public;
@@ -26,6 +39,12 @@ alter table public.profiles add column if not exists bio text default '';
 alter table public.profiles add column if not exists updated_at timestamptz not null default now();
 create unique index if not exists idx_profiles_display_name_unique on public.profiles (display_name);
 create unique index if not exists idx_profiles_display_name_lower_unique on public.profiles ((lower(display_name)));
+
+insert into public.admin_users(user_id, granted_by, note)
+select p.user_id, 'bootstrap', 'migrated-from-admin-display-name'
+from public.profiles p
+where lower(p.display_name) = 'admin'
+on conflict (user_id) do nothing;
 
 create table if not exists public.posts (
   id uuid primary key default gen_random_uuid(),
@@ -136,7 +155,7 @@ begin
     select schemaname, tablename, policyname
     from pg_policies
     where schemaname = 'public'
-      and tablename in ('profiles','posts','comments','reports','banned_users','moderation_logs','friendships','download_link_submissions')
+      and tablename in ('profiles','posts','comments','reports','banned_users','moderation_logs','friendships','download_link_submissions','admin_users')
   loop
     execute format('drop policy if exists %I on %I.%I', r.policyname, r.schemaname, r.tablename);
   end loop;
@@ -188,6 +207,7 @@ alter table public.banned_users enable row level security;
 alter table public.moderation_logs enable row level security;
 alter table public.friendships enable row level security;
 alter table public.download_link_submissions enable row level security;
+alter table public.admin_users enable row level security;
 
 create or replace function public.enforce_action_rate_limit_trigger()
 returns trigger
@@ -644,6 +664,11 @@ to authenticated
 using (public.is_admin())
 with check (public.is_admin());
 
+create policy "Admin delete any profile"
+on public.profiles for delete
+to authenticated
+using (public.is_admin());
+
 create policy "Public read posts"
 on public.posts for select
 to anon, authenticated
@@ -728,6 +753,11 @@ to authenticated
 using (public.is_admin())
 with check (public.is_admin());
 
+create policy "Admin delete reports"
+on public.reports for delete
+to authenticated
+using (public.is_admin());
+
 create policy "Admin read bans"
 on public.banned_users for select
 to authenticated
@@ -747,6 +777,22 @@ using (public.is_admin());
 create policy "Admin write moderation logs"
 on public.moderation_logs for insert
 to authenticated
+with check (public.is_admin());
+
+create policy "Admin delete moderation logs"
+on public.moderation_logs for delete
+to authenticated
+using (public.is_admin());
+
+create policy "Admin read admin users"
+on public.admin_users for select
+to authenticated
+using (public.is_admin());
+
+create policy "Admin manage admin users"
+on public.admin_users for all
+to authenticated
+using (public.is_admin())
 with check (public.is_admin());
 
 create policy "Read own friendships"

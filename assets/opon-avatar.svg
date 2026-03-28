@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640" role="img" aria-labelledby="title desc">
+  <title id="title">Opon Profile Sigil</title>
+  <desc id="desc">Custom animated neon sigil for the Opon profile.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="70%">
+      <stop offset="0%" stop-color="#101a2f" />
+      <stop offset="55%" stop-color="#0a1224" />
+      <stop offset="100%" stop-color="#050911" />
+    </radialGradient>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#56f3ff" />
+      <stop offset="50%" stop-color="#6f8dff" />
+      <stop offset="100%" stop-color="#6effc5" />
+    </linearGradient>
+    <linearGradient id="core" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7bffea" />
+      <stop offset="100%" stop-color="#75a8ff" />
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="b" />
+      <feMerge>
+        <feMergeNode in="b" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="640" height="640" fill="url(#bg)" rx="64" ry="64" />
+
+  <g transform="translate(320 320)">
+    <circle r="214" fill="none" stroke="url(#ring)" stroke-width="8" opacity="0.7" filter="url(#glow)">
+      <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="22s" repeatCount="indefinite" />
+    </circle>
+    <circle r="178" fill="none" stroke="url(#ring)" stroke-width="4" opacity="0.55" stroke-dasharray="8 14">
+      <animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="18s" repeatCount="indefinite" />
+    </circle>
+    <circle r="142" fill="none" stroke="#7ff6ff" stroke-width="2" opacity="0.45" stroke-dasharray="2 12">
+      <animate attributeName="opacity" values="0.2;0.6;0.2" dur="4s" repeatCount="indefinite" />
+    </circle>
+
+    <path d="M0 -142 L123 -71 L123 71 L0 142 L-123 71 L-123 -71 Z" fill="none" stroke="url(#ring)" stroke-width="9" filter="url(#glow)">
+      <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="16s" repeatCount="indefinite" />
+    </path>
+
+    <path d="M0 -82 L70 -41 L70 41 L0 82 L-70 41 L-70 -41 Z" fill="rgba(130,200,255,0.12)" stroke="url(#core)" stroke-width="6" filter="url(#glow)">
+      <animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="11s" repeatCount="indefinite" />
+    </path>
+
+    <text x="0" y="20" fill="#d7edff" font-family="Barlow, Segoe UI, sans-serif" font-size="112" font-weight="800" text-anchor="middle" filter="url(#glow)">O</text>
+  </g>
+</svg>

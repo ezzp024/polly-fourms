@@ -44,6 +44,15 @@
   let myFriends = [];
   let myIncomingRequests = [];
 
+  const OPON_HANDLE = toHandle("Opon");
+  const OPON_PROFILE = {
+    headline: "Founder and Primary Administrator",
+    bio: "I run Polly Fourms as a high-signal space for real builders. Expect practical releases, clean technical discussion, and strict safety review for shared downloads.",
+    telegram: "@zeseret",
+    discord: "https://discord.gg/4wZAZC8Za",
+    avatar: "assets/opon-avatar.svg"
+  };
+
   function setFriendStatus(text) {
     if (friendActionStatus) friendActionStatus.textContent = text;
   }
@@ -174,14 +183,34 @@
     }
 
     selectedMember = member;
+    const isOpon = toHandle(member.displayName) === OPON_HANDLE;
 
     const role = member.rank;
-    profileName.textContent = member.displayName;
-    profileMeta.textContent = `${role} profile`;
+    if (isOpon) {
+      profileName.innerHTML = `<span class="opon-name">${escapeHtml(member.displayName)}</span>`;
+      profileMeta.textContent = OPON_PROFILE.headline;
+    } else {
+      profileName.textContent = member.displayName;
+      profileMeta.textContent = `${role} profile`;
+    }
     const karma = member.score;
     const karmaLevel = karma >= 25 ? "⭐⭐⭐" : karma >= 10 ? "⭐⭐" : karma >= 5 ? "⭐" : "";
+    const ownerPanel = isOpon
+      ? `
+        <section class="opon-profile-panel">
+          <img class="opon-avatar" src="${OPON_PROFILE.avatar}" alt="Opon animated profile emblem" loading="lazy" decoding="async" />
+          <div class="opon-profile-copy">
+            <h2>Official Owner Profile</h2>
+            <p>${escapeHtml(OPON_PROFILE.bio)}</p>
+            <p><strong>Telegram:</strong> ${escapeHtml(OPON_PROFILE.telegram)}</p>
+            <p><strong>Discord:</strong> <a href="${OPON_PROFILE.discord}" target="_blank" rel="noopener noreferrer">${escapeHtml(OPON_PROFILE.discord)}</a></p>
+          </div>
+        </section>
+      `
+      : "";
     profileCard.innerHTML = `
-      <div class="profile-kpis">
+      ${ownerPanel}
+      <div class="profile-kpis ${isOpon ? "opon-kpis" : ""}">
         <article><strong>${member.rank}</strong><small>Rank</small></article>
         <article><strong>${member.threads}</strong><small>Threads</small></article>
         <article><strong>${member.replies}</strong><small>Replies</small></article>

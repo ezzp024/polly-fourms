@@ -5,13 +5,27 @@ const keyMatch = txt.match(/supabaseAnonKey:\s*"([^"]+)/);
 const url = urlMatch ? urlMatch[1] : "";
 const anonKey = keyMatch ? keyMatch[1] : "";
 
+function requiredEnv(name) {
+  const value = String(process.env[name] || "").trim();
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
 async function test() {
   console.log("Testing security...\n");
+  if (!url || !anonKey) {
+    throw new Error("Missing Supabase config in config.js");
+  }
+
+  const email = requiredEnv("NON_ADMIN_EMAIL");
+  const password = requiredEnv("NON_ADMIN_PASSWORD");
   
   const loginRes = await fetch(url + '/auth/v1/token?grant_type=password', {
     method: 'POST',
     headers: { 'apikey': anonKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'sper1337@gmail.com', password: '12312344' })
+    body: JSON.stringify({ email, password })
   });
   const session = await loginRes.json();
   const token = session.access_token;
@@ -79,4 +93,7 @@ async function test() {
   console.log('\n=== DONE ===');
 }
 
-test().catch(e => console.error(e));
+test().catch((e) => {
+  console.error(e.message || e);
+  process.exit(1);
+});

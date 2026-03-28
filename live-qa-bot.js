@@ -10,6 +10,14 @@ function parseConfig() {
   return { supabaseUrl, supabaseAnonKey };
 }
 
+function requiredEnv(name) {
+  const value = String(process.env[name] || "").trim();
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
 function loadPreviousReport() {
   try {
     const raw = fs.readFileSync("qa-live-report.json", "utf8");
@@ -86,10 +94,17 @@ function runNodeCheck(file) {
   };
 }
 
-function runScript(file) {
+function runScript(file, options) {
+  const opts = options || {};
+  const env = { ...process.env };
+  if (Array.isArray(opts.unset)) {
+    for (const key of opts.unset) {
+      delete env[key];
+    }
+  }
   const res = spawnSync(process.execPath, [file], {
     encoding: "utf8",
-    env: { ...process.env }
+    env
   });
   const output = `${res.stdout || ""}${res.stderr || ""}`.trim();
   return {
@@ -243,8 +258,8 @@ async function runAuthAndForumFlow(baseUrl, anonKey) {
     })
   );
 
-  const nonAdminEmail = process.env.NON_ADMIN_EMAIL || "sper1337@gmail.com";
-  const nonAdminPassword = process.env.NON_ADMIN_PASSWORD || "12312344";
+  const nonAdminEmail = requiredEnv("NON_ADMIN_EMAIL");
+  const nonAdminPassword = requiredEnv("NON_ADMIN_PASSWORD");
   const nonAdminLogin = await login(baseUrl, anonKey, nonAdminEmail, nonAdminPassword);
   const nonAdminToken = nonAdminLogin.json?.access_token || "";
   let nonAdminUserId = nonAdminLogin.json?.user?.id || "";
@@ -380,8 +395,8 @@ async function runAuthAndForumFlow(baseUrl, anonKey) {
     })
   );
 
-  const adminEmail = process.env.ADMIN_EMAIL || "ezzp024@gmail.com";
-  const adminPassword = process.env.ADMIN_PASSWORD || "12312344!y";
+  const adminEmail = requiredEnv("ADMIN_EMAIL");
+  const adminPassword = requiredEnv("ADMIN_PASSWORD");
   const adminLogin = await login(baseUrl, anonKey, adminEmail, adminPassword);
   const adminToken = adminLogin.json?.access_token || "";
   let adminUserId = adminLogin.json?.user?.id || "";
@@ -775,7 +790,9 @@ async function main() {
     runScript("test-security.js"),
     runScript("test-detailed.js"),
     runScript("test-final.js"),
-    runScript("rls-check.js")
+    runScript("rls-check.js", {
+      unset: ["NON_ADMIN_EMAIL", "NON_ADMIN_PASSWORD", "NON_ADMIN_DISPLAY_NAME"]
+    })
   ];
   const scriptChecks = scriptChecksRaw.map((item) => ({
     ...item,
@@ -784,8 +801,16 @@ async function main() {
 
   let flowChecks = [];
   if (supabaseUrl && supabaseAnonKey) {
-    const flow = await runAuthAndForumFlow(supabaseUrl, supabaseAnonKey);
-    flowChecks = flow.checks;
+    try {
+      const flow = await runAuthAndForumFlow(supabaseUrl, supabaseAnonKey);
+      flowChecks = flow.checks;
+    } catch (error) {
+      flowChecks = [
+        createCheck("auth-and-forum-flow", false, {
+          note: error && error.message ? error.message : "Live auth/post/admin flow failed to start."
+        })
+      ];
+    }
   } else {
     flowChecks = [
       createCheck("auth-and-forum-flow", false, {

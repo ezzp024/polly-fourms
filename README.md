@@ -118,11 +118,26 @@ Optional:
 
 - `NON_ADMIN_DISPLAY_NAME` to control the profile name used by the probe.
 
+Security scripts now require credentials through environment variables (no hardcoded secrets in repo):
+
+```bash
+NON_ADMIN_EMAIL="member@example.com" NON_ADMIN_PASSWORD="your-password" node test-security.js
+NON_ADMIN_EMAIL="member@example.com" NON_ADMIN_PASSWORD="your-password" node test-detailed.js
+NON_ADMIN_EMAIL="member@example.com" NON_ADMIN_PASSWORD="your-password" node test-final.js
+```
+
+Full live QA requires both member and admin credentials:
+
+```bash
+NON_ADMIN_EMAIL="member@example.com" NON_ADMIN_PASSWORD="your-password" ADMIN_EMAIL="admin@example.com" ADMIN_PASSWORD="your-admin-password" node live-qa-bot.js
+```
+
 If any check fails, re-run the latest `supabase-setup.sql` and then run `node rls-check.js` again.
 
 Important:
 
 - Re-run `supabase-setup.sql` after pulling latest changes so owner-update and profile-identity guard triggers are active.
+- Admin access is now controlled by `public.admin_users` and/or JWT `app_metadata.role='admin'`; no personal admin email is hardcoded.
 
 ## 3) Publish with free GitHub domain
 

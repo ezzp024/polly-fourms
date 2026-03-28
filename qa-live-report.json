@@ -1,6 +1,6 @@
 {
-  "startedAt": "2026-03-28T15:14:02.211Z",
-  "finishedAt": "2026-03-28T15:14:39.840Z",
+  "startedAt": "2026-03-28T15:39:22.402Z",
+  "finishedAt": "2026-03-28T15:40:01.613Z",
   "supabaseConfigured": true,
   "liveBaseUrl": "https://ezzp024.github.io/polly-fourms",
   "totalChecks": 49,
@@ -10,7 +10,9 @@
   "comparison": {
     "hasPrevious": true,
     "fixedSinceLastRun": [
-      "forum:create-post-non-admin"
+      "auth:admin-rpc-is_admin",
+      "admin:can-read-pending-download-links",
+      "admin:ban-user"
     ],
     "unresolvedFromLastRun": [],
     "newlyDiscoveredIssues": [],
@@ -170,7 +172,7 @@
       "name": "forum:create-post-non-admin",
       "ok": true,
       "status": 201,
-      "note": "post id 701d7b72-e45d-4fa6-97fa-94904800ccb0"
+      "note": "post id b074c1ec-699a-4248-984b-ccfe6df1d2dd"
     },
     {
       "name": "feature:download-link-hidden-before-approval",
@@ -218,7 +220,7 @@
       "name": "admin:can-read-reports",
       "ok": true,
       "status": 200,
-      "note": "rows=28"
+      "note": "rows=36"
     },
     {
       "name": "admin:can-read-pending-download-links",
@@ -242,7 +244,7 @@
       "name": "admin:ban-download-domain",
       "ok": true,
       "status": 201,
-      "note": "blocked malware-1774710851967.example.com"
+      "note": "blocked malware-1774712373649.example.com"
     },
     {
       "name": "security:blocked-download-domain-enforced",
@@ -272,7 +274,7 @@
       "name": "admin:ban-user",
       "ok": true,
       "status": 201,
-      "note": "ban id 2fd35905-c977-4c03-8608-dc5774d5c6f7"
+      "note": "ban id ba2fdffa-b1d1-4bbe-a5b5-7a31c2121e62"
     },
     {
       "name": "admin:unban-user",

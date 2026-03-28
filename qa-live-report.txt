@@ -5,7 +5,9 @@ Unresolved Issues From Previous Run:
 - none
 
 Fixed Since Previous Run:
-- forum:create-post-non-admin
+- auth:admin-rpc-is_admin
+- admin:can-read-pending-download-links
+- admin:ban-user
 
 Potential False-Fix Claims:
 - none
@@ -50,7 +52,7 @@ Base URL: https://ezzp024.github.io/polly-fourms
 [PASS] profile:upsert-non-admin
   profile upsert ok
 [PASS] forum:create-post-non-admin
-  post id 701d7b72-e45d-4fa6-97fa-94904800ccb0
+  post id b074c1ec-699a-4248-984b-ccfe6df1d2dd
 [PASS] feature:download-link-hidden-before-approval
   link hidden until admin approval
 [PASS] forum:create-comment-non-admin
@@ -66,7 +68,7 @@ Base URL: https://ezzp024.github.io/polly-fourms
 [PASS] auth:admin-rpc-is_admin
   is_admin returned true
 [PASS] admin:can-read-reports
-  rows=28
+  rows=36
 [PASS] admin:can-read-pending-download-links
   pending link visible to admin
 [PASS] admin:approve-download-link
@@ -74,7 +76,7 @@ Base URL: https://ezzp024.github.io/polly-fourms
 [PASS] feature:download-link-visible-after-approval
   link visible after admin approval
 [PASS] admin:ban-download-domain
-  blocked malware-1774710851967.example.com
+  blocked malware-1774712373649.example.com
 [PASS] security:blocked-download-domain-enforced
   blocked domain rejected
 [PASS] admin:resolve-report
@@ -84,7 +86,7 @@ Base URL: https://ezzp024.github.io/polly-fourms
 [PASS] admin:moderate-post-unhide-unlock
   unhide/unlock ok
 [PASS] admin:ban-user
-  ban id 2fd35905-c977-4c03-8608-dc5774d5c6f7
+  ban id ba2fdffa-b1d1-4bbe-a5b5-7a31c2121e62
 [PASS] admin:unban-user
   unban ok
 [PASS] admin:cleanup-delete-created-post
