@@ -46,8 +46,12 @@ create table if not exists public.posts (
 );
 
 alter table public.posts add column if not exists author_user_id uuid references auth.users(id) on delete set null;
+alter table public.posts add column if not exists is_pinned boolean not null default false;
+alter table public.posts add column if not exists is_sticky boolean not null default false;
+alter table public.posts add column if not exists is_hidden boolean not null default false;
 alter table public.posts add column if not exists is_locked boolean not null default false;
 alter table public.posts add column if not exists is_solved boolean not null default false;
+alter table public.posts add column if not exists hidden_reason text;
 alter table public.posts add column if not exists updated_at timestamptz not null default now();
 
 create table if not exists public.comments (
@@ -88,6 +92,19 @@ create table if not exists public.banned_users (
 
 alter table public.banned_users add column if not exists user_id uuid references auth.users(id) on delete cascade;
 
+do $$
+declare r record;
+begin
+  for r in
+    select schemaname, tablename, policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('profiles','posts','comments','reports','banned_users','moderation_logs')
+  loop
+    execute format('drop policy if exists %I on %I.%I', r.policyname, r.schemaname, r.tablename);
+  end loop;
+end $$;
+
 create table if not exists public.moderation_logs (
   id uuid primary key default gen_random_uuid(),
   action text not null,
@@ -110,33 +127,6 @@ alter table public.comments enable row level security;
 alter table public.reports enable row level security;
 alter table public.banned_users enable row level security;
 alter table public.moderation_logs enable row level security;
-
-drop policy if exists "Public read profiles" on public.profiles;
-drop policy if exists "Self create profile" on public.profiles;
-drop policy if exists "Self update profile" on public.profiles;
-drop policy if exists "Admin update any profile" on public.profiles;
-
-drop policy if exists "Public read posts" on public.posts;
-drop policy if exists "Authenticated create posts" on public.posts;
-drop policy if exists "Owner update posts" on public.posts;
-drop policy if exists "Owner delete posts" on public.posts;
-drop policy if exists "Admin update posts" on public.posts;
-drop policy if exists "Admin delete posts" on public.posts;
-
-drop policy if exists "Public read comments" on public.comments;
-drop policy if exists "Authenticated create comments" on public.comments;
-drop policy if exists "Owner delete comments" on public.comments;
-drop policy if exists "Admin delete comments" on public.comments;
-
-drop policy if exists "Authenticated create reports" on public.reports;
-drop policy if exists "Admin read reports" on public.reports;
-drop policy if exists "Admin update reports" on public.reports;
-
-drop policy if exists "Admin read bans" on public.banned_users;
-drop policy if exists "Admin write bans" on public.banned_users;
-
-drop policy if exists "Admin read moderation logs" on public.moderation_logs;
-drop policy if exists "Admin write moderation logs" on public.moderation_logs;
 
 create policy "Public read profiles"
 on public.profiles for select
