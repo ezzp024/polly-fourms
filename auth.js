@@ -35,6 +35,9 @@
 
   if (!allowRegistration && registerBlock) {
     registerBlock.style.display = "none";
+    if (resendForm) {
+      resendForm.style.display = "none";
+    }
   }
 
   async function refreshStatus() {
@@ -163,6 +166,12 @@
       const isAdmin = await window.PollyCommon.hasAdminSession();
       if (isAdmin && next === "admin.html") {
         window.location.replace("admin.html");
+        return;
+      }
+
+      if (!isAdmin && next === "admin.html") {
+        statusEl.textContent = "Admin access denied for this account.";
+        window.location.replace("index.html");
         return;
       }
 
