@@ -392,6 +392,10 @@ button:hover {
   display: none;
 }
 
+.owner-only {
+  display: none;
+}
+
 .admin-only {
   display: none;
 }
@@ -401,6 +405,10 @@ body.is-admin .admin-only {
 }
 
 body.is-moderator .moderator-only {
+  display: inline-block;
+}
+
+body.is-owner .owner-only {
   display: inline-block;
 }
 

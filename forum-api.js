@@ -110,6 +110,11 @@
       this._save(this.commentKey, comments);
     }
 
+    async deleteComment(commentId) {
+      const comments = this._load(this.commentKey).filter((c) => c.id !== commentId);
+      this._save(this.commentKey, comments);
+    }
+
     async deleteCommentsByAuthor(name) {
       this._save(
         this.commentKey,
@@ -301,6 +306,8 @@
         is_pinned: false,
         is_sticky: false,
         is_hidden: false,
+        is_locked: false,
+        is_solved: false,
         hidden_reason: null
       });
       if (error) throw error;
@@ -313,6 +320,11 @@
       if (Object.prototype.hasOwnProperty.call(patch, "is_hidden")) payload.is_hidden = Boolean(patch.is_hidden);
       if (Object.prototype.hasOwnProperty.call(patch, "hidden_reason")) payload.hidden_reason = patch.hidden_reason || null;
       if (Object.prototype.hasOwnProperty.call(patch, "software_url")) payload.software_url = patch.software_url || null;
+      if (Object.prototype.hasOwnProperty.call(patch, "is_locked")) payload.is_locked = Boolean(patch.is_locked);
+      if (Object.prototype.hasOwnProperty.call(patch, "is_solved")) payload.is_solved = Boolean(patch.is_solved);
+      if (Object.prototype.hasOwnProperty.call(patch, "title")) payload.title = patch.title;
+      if (Object.prototype.hasOwnProperty.call(patch, "body")) payload.body = patch.body;
+      if (Object.prototype.hasOwnProperty.call(patch, "tags")) payload.tags = Array.isArray(patch.tags) ? patch.tags : [];
       const { error } = await this.client.from("posts").update(payload).eq("id", postId);
       if (error) throw error;
     }
@@ -346,6 +358,11 @@
         author_user_id: user.id,
         body: comment.body
       });
+      if (error) throw error;
+    }
+
+    async deleteComment(commentId) {
+      const { error } = await this.client.from("comments").delete().eq("id", commentId);
       if (error) throw error;
     }
 
@@ -383,7 +400,18 @@
 
     async banUser(nickname, reason, bannedBy) {
       const normalized = String(nickname || "").trim().toLowerCase();
+      let userId = null;
+      const { data: profileData } = await this.client
+        .from("profiles")
+        .select("user_id")
+        .ilike("display_name", nickname)
+        .maybeSingle();
+      if (profileData && profileData.user_id) {
+        userId = profileData.user_id;
+      }
+
       const { error } = await this.client.from("banned_users").insert({
+        user_id: userId,
         nickname: normalized,
         reason: reason || "Policy violation",
         banned_by: bannedBy || "admin",

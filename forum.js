@@ -12,7 +12,10 @@
     isModerator,
     buildMemberStats,
     profileLink,
-    toHandle
+    toHandle,
+    canPerform,
+    markPerformed,
+    formatWaitMs
   } = window.PollyCommon;
 
   const api = window.PollyApi.createApi();
@@ -107,6 +110,8 @@
             const titleBadges = [
               post.is_pinned ? '<span class="badge badge-pin">Pinned</span>' : "",
               post.is_sticky ? '<span class="badge badge-sticky">Sticky</span>' : "",
+              post.is_locked ? '<span class="badge badge-hidden">Locked</span>' : "",
+              post.is_solved ? '<span class="badge badge-sticky">Solved</span>' : "",
               post.is_hidden ? '<span class="badge badge-hidden">Hidden</span>' : ""
             ].join(" ");
 
@@ -184,6 +189,12 @@
 
     if (!title || !body) return;
 
+    const gate = canPerform("create_thread", 15000);
+    if (!gate.ok) {
+      alert(`Please wait ${formatWaitMs(gate.nextAllowedIn)} before creating another thread.`);
+      return;
+    }
+
     try {
       await api.createPost({
         title,
@@ -193,6 +204,7 @@
         tags,
         author_name: nickname
       });
+      markPerformed("create_thread");
       newThreadForm.reset();
       currentPage = 1;
       [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);

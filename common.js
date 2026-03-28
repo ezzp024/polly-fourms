@@ -1,6 +1,7 @@
 (function () {
   const CONFIG = window.POLLY_CONFIG || {};
   const AUTH_STORAGE_KEY = "polly_auth_main";
+  const RATE_LIMIT_KEY = "polly_rate_limit";
   let authClient = null;
   const identityState = {
     loaded: false,
@@ -297,6 +298,88 @@
     return authClient;
   }
 
+  function readRateStore() {
+    try {
+      return JSON.parse(localStorage.getItem(RATE_LIMIT_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function writeRateStore(store) {
+    localStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(store));
+  }
+
+  function canPerform(action, minMs) {
+    const now = Date.now();
+    const store = readRateStore();
+    const last = Number(store[action] || 0);
+    const nextAllowedIn = Math.max(0, minMs - (now - last));
+    return { ok: nextAllowedIn === 0, nextAllowedIn };
+  }
+
+  function markPerformed(action) {
+    const store = readRateStore();
+    store[action] = Date.now();
+    writeRateStore(store);
+  }
+
+  function formatWaitMs(ms) {
+    const sec = Math.ceil(ms / 1000);
+    return `${sec}s`;
+  }
+
+  function sanitizeNextPath(rawNext) {
+    const fallback = "index.html";
+    const next = String(rawNext || "").trim();
+    if (!next) return fallback;
+    if (next.startsWith("http://") || next.startsWith("https://") || next.startsWith("//")) {
+      return fallback;
+    }
+
+    const allowed = ["index.html", "forum.html", "thread.html", "releases.html", "profile.html", "auth.html", "admin.html"];
+
+    const base = next.split("?")[0].split("#")[0];
+    if (!allowed.includes(base)) return fallback;
+    return next;
+  }
+
+  async function initSessionNav() {
+    const nav = document.querySelector("nav.main-nav .nav-inner");
+    if (!nav) return;
+
+    const loginLink = nav.querySelector('a[href="auth.html"]');
+    if (!loginLink) return;
+
+    const user = await getAuthUser();
+    if (!user) {
+      loginLink.textContent = "Login";
+      loginLink.href = "auth.html";
+      const logoutNode = nav.querySelector('[data-session-link="logout"]');
+      if (logoutNode) logoutNode.remove();
+      return;
+    }
+
+    loginLink.textContent = "Account";
+    loginLink.href = "auth.html";
+
+    if (!nav.querySelector('[data-session-link="logout"]')) {
+      const logout = document.createElement("a");
+      logout.href = "#";
+      logout.dataset.sessionLink = "logout";
+      logout.textContent = "Logout";
+      logout.addEventListener("click", async (event) => {
+        event.preventDefault();
+        const client = createAuthClient();
+        if (client) {
+          await client.auth.signOut();
+        }
+        window.location.href = "index.html";
+      });
+      nav.append(logout);
+    }
+  }
+
   async function getAuthUser() {
     const client = createAuthClient();
     if (!client) return null;
@@ -390,6 +473,11 @@
     buildMemberStats,
     createAuthClient,
     hasSupabaseConfig,
+    canPerform,
+    markPerformed,
+    formatWaitMs,
+    sanitizeNextPath,
+    initSessionNav,
     getAuthUser,
     getAuthedEmail,
     fetchMyProfile,
@@ -411,4 +499,5 @@
   };
 
   void applyAdminVisibility();
+  void initSessionNav();
 })();

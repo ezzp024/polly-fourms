@@ -7,7 +7,11 @@
     isModerator,
     buildMemberStats,
     toHandle,
-    profileLink
+    profileLink,
+    normalizeTags,
+    canPerform,
+    markPerformed,
+    formatWaitMs
   } = window.PollyCommon;
   const api = window.PollyApi.createApi();
 
@@ -26,11 +30,16 @@
   const quoteReply = document.getElementById("quoteReply");
   const copyThreadLink = document.getElementById("copyThreadLink");
   const reportThread = document.getElementById("reportThread");
+  const editThread = document.getElementById("editThread");
+  const deleteThread = document.getElementById("deleteThread");
   const togglePin = document.getElementById("togglePin");
   const toggleSticky = document.getElementById("toggleSticky");
+  const toggleLock = document.getElementById("toggleLock");
+  const toggleSolved = document.getElementById("toggleSolved");
   const toggleHide = document.getElementById("toggleHide");
 
   let cachedPost = null;
+  let currentUser = null;
   const canModerate = isModerator();
   if (canModerate) {
     document.body.classList.add("is-moderator");
@@ -46,6 +55,7 @@
   }
 
   async function load() {
+    currentUser = await window.PollyCommon.getAuthUser();
     const [post, allPostsRaw, allComments] = await Promise.all([api.getPostById(id), api.getPosts(), api.getComments()]);
     if (!post) {
       threadTitle.textContent = "Thread not found";
@@ -78,11 +88,18 @@
     const modBadges = [
       post.is_pinned ? '<span class="badge badge-pin">Pinned</span>' : "",
       post.is_sticky ? '<span class="badge badge-sticky">Sticky</span>' : "",
+      post.is_locked ? '<span class="badge badge-hidden">Locked</span>' : "",
+      post.is_solved ? '<span class="badge badge-sticky">Solved</span>' : "",
       post.is_hidden ? '<span class="badge badge-hidden">Hidden</span>' : ""
     ].join(" ");
 
+    const isOwner = Boolean(currentUser && post.author_user_id && currentUser.id === post.author_user_id);
+    document.body.classList.toggle("is-owner", isOwner);
+
     togglePin.textContent = post.is_pinned ? "Unpin" : "Pin";
     toggleSticky.textContent = post.is_sticky ? "Unsticky" : "Sticky";
+    toggleLock.textContent = post.is_locked ? "Unlock" : "Lock";
+    toggleSolved.textContent = post.is_solved ? "Unsolve" : "Solved";
     toggleHide.textContent = post.is_hidden ? "Unhide" : "Hide";
 
     threadPost.innerHTML = `
@@ -101,6 +118,7 @@
               <article class="comment-item">
                 <strong><a href="${profileLink(comment.author_name)}">${escapeHtml(comment.author_name)}</a></strong> <small class="muted">${formatDate(comment.created_at)}</small>
                 <p>${escapeHtml(comment.body)}</p>
+                ${(canModerate || (currentUser && comment.author_user_id && comment.author_user_id === currentUser.id)) ? `<p><button type="button" data-action="delete-comment" data-id="${comment.id}">Delete Comment</button></p>` : ""}
               </article>
             `
           )
@@ -152,6 +170,17 @@
 
     const nickname = profile.display_name;
 
+    if (cachedPost && cachedPost.is_locked && !canModerate) {
+      alert("This thread is locked.");
+      return;
+    }
+
+    const gate = canPerform("create_comment", 8000);
+    if (!gate.ok) {
+      alert(`Please wait ${formatWaitMs(gate.nextAllowedIn)} before replying again.`);
+      return;
+    }
+
     if (await api.isNicknameBanned(nickname)) {
       alert("Your account is currently banned from replying.");
       return;
@@ -163,6 +192,7 @@
 
     try {
       await api.createComment({ post_id: id, author_name: nickname, body });
+      markPerformed("create_comment");
       replyForm.reset();
       await load();
     } catch (error) {
@@ -208,6 +238,12 @@
 
     const nickname = profile.display_name;
 
+    const gate = canPerform("create_report", 20000);
+    if (!gate.ok) {
+      alert(`Please wait ${formatWaitMs(gate.nextAllowedIn)} before sending another report.`);
+      return;
+    }
+
     if (await api.isNicknameBanned(nickname)) {
       alert("Your account is currently banned from reporting.");
       return;
@@ -218,6 +254,7 @@
 
     try {
       await api.createReport({ post_id: cachedPost.id, reason, reporter_name: nickname });
+      markPerformed("create_report");
       reportThread.textContent = "Reported";
       setTimeout(() => {
         reportThread.textContent = "Report Thread";
@@ -235,6 +272,12 @@
       }
       if (action === "sticky") {
         await api.updatePost(cachedPost.id, { is_sticky: !cachedPost.is_sticky });
+      }
+      if (action === "lock") {
+        await api.updatePost(cachedPost.id, { is_locked: !cachedPost.is_locked });
+      }
+      if (action === "solved") {
+        await api.updatePost(cachedPost.id, { is_solved: !cachedPost.is_solved });
       }
       if (action === "hide") {
         const nextHidden = !cachedPost.is_hidden;
@@ -258,5 +301,58 @@
   });
   toggleHide.addEventListener("click", () => {
     void moderate("hide");
+  });
+  toggleLock.addEventListener("click", () => {
+    void moderate("lock");
+  });
+  toggleSolved.addEventListener("click", () => {
+    void moderate("solved");
+  });
+
+  editThread.addEventListener("click", async () => {
+    if (!cachedPost) return;
+    const title = prompt("Edit title", cachedPost.title);
+    if (!title) return;
+    const body = prompt("Edit body", cachedPost.body);
+    if (!body) return;
+    const tags = prompt("Edit tags (comma separated)", Array.isArray(cachedPost.tags) ? cachedPost.tags.join(", ") : "");
+
+    try {
+      await api.updatePost(cachedPost.id, {
+        title: title.trim().slice(0, 120),
+        body: body.trim(),
+        tags: normalizeTags(String(tags || ""))
+      });
+      await load();
+    } catch (error) {
+      alert(`Could not edit thread: ${error.message || String(error)}`);
+    }
+  });
+
+  deleteThread.addEventListener("click", async () => {
+    if (!cachedPost) return;
+    if (!confirm("Delete this thread permanently?")) return;
+    try {
+      await api.deletePost(cachedPost.id);
+      window.location.href = `forum.html?section=${encodeURIComponent(cachedPost.category || "general")}`;
+    } catch (error) {
+      alert(`Could not delete thread: ${error.message || String(error)}`);
+    }
+  });
+
+  commentsList.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || target.tagName !== "BUTTON") return;
+    const action = target.getAttribute("data-action");
+    const commentId = target.getAttribute("data-id");
+    if (action !== "delete-comment" || !commentId) return;
+    if (!confirm("Delete this comment?")) return;
+
+    try {
+      await api.deleteComment(commentId);
+      await load();
+    } catch (error) {
+      alert(`Could not delete comment: ${error.message || String(error)}`);
+    }
   });
 })();

@@ -30,10 +30,8 @@
       <div class="compose-box">
         <h2>Register</h2>
         <form id="registerForm" class="row-fields" autocomplete="off">
-          <input type="text" name="fake_user_register" autocomplete="username" tabindex="-1" class="visually-hidden" />
-          <input type="password" name="fake_pass_register" autocomplete="current-password" tabindex="-1" class="visually-hidden" />
-          <input id="registerEmail" name="register_email_pf" type="email" placeholder="Email" autocomplete="off" readonly data-lpignore="true" required />
-          <input id="registerPassword" name="register_password_pf" type="password" placeholder="Password" autocomplete="new-password" readonly data-lpignore="true" required />
+          <input id="registerEmail" name="register_email_pf" type="email" placeholder="Email" autocomplete="email" required />
+          <input id="registerPassword" name="register_password_pf" type="password" placeholder="Password" autocomplete="new-password" required />
           <button type="submit">Create Account</button>
         </form>
         <p class="muted">After sign-up, check your email and click the verification link.</p>
@@ -46,10 +44,8 @@
 
         <h2>Login</h2>
         <form id="loginForm" class="row-fields" autocomplete="off">
-          <input type="text" name="fake_user_login" autocomplete="username" tabindex="-1" class="visually-hidden" />
-          <input type="password" name="fake_pass_login" autocomplete="current-password" tabindex="-1" class="visually-hidden" />
-          <input id="loginEmail" name="login_email_pf" type="email" placeholder="Email" autocomplete="off" readonly data-lpignore="true" required />
-          <input id="loginPassword" name="login_password_pf" type="password" placeholder="Password" autocomplete="new-password" readonly data-lpignore="true" required />
+          <input id="loginEmail" name="login_email_pf" type="email" placeholder="Email" autocomplete="email" required />
+          <input id="loginPassword" name="login_password_pf" type="password" placeholder="Password" autocomplete="current-password" required />
           <button type="submit">Login</button>
         </form>
 

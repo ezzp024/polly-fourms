@@ -12,7 +12,7 @@
   const client = window.PollyCommon.createAuthClient();
 
   const params = new URLSearchParams(window.location.search);
-  const next = params.get("next") || "index.html";
+  const next = window.PollyCommon.sanitizeNextPath(params.get("next") || "index.html");
 
   function getEmailRedirectUrl() {
     const url = new URL("auth.html", window.location.href);
@@ -26,42 +26,10 @@
     return new URLSearchParams(raw);
   }
 
-  function clearAuthInputs() {
-    registerEmail.value = "";
-    registerPassword.value = "";
-    loginEmail.value = "";
-    loginPassword.value = "";
-  }
-
-  function unlockReadOnlyOnFocus(input) {
-    input.addEventListener("focus", () => {
-      input.removeAttribute("readonly");
-    });
-    input.addEventListener("blur", () => {
-      if (!input.value) {
-        input.setAttribute("readonly", "readonly");
-      }
-    });
-  }
-
   if (!client) {
     statusEl.textContent = "Supabase is not configured yet.";
     return;
   }
-
-  clearAuthInputs();
-  setTimeout(clearAuthInputs, 80);
-  setTimeout(clearAuthInputs, 400);
-  setTimeout(clearAuthInputs, 1200);
-
-  [registerEmail, registerPassword, loginEmail, loginPassword].forEach(unlockReadOnlyOnFocus);
-
-  window.addEventListener("focus", clearAuthInputs);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-      clearAuthInputs();
-    }
-  });
 
   async function refreshStatus() {
     const user = await window.PollyCommon.getAuthUser();
@@ -126,7 +94,12 @@
       statusEl.textContent = "Registration submitted. Check your email and click the verification link.";
       resendEmail.value = email;
     } catch (error) {
-      statusEl.textContent = `Register failed: ${error.message || String(error)}`;
+      const message = String(error.message || error || "Register failed");
+      if (/rate limit/i.test(message)) {
+        statusEl.textContent = "Register failed: email rate limit exceeded. Wait and use resend verification later.";
+      } else {
+        statusEl.textContent = `Register failed: ${message}`;
+      }
     }
   });
 
@@ -146,7 +119,12 @@
       if (error) throw error;
       statusEl.textContent = "Verification email resent. Please check inbox/spam.";
     } catch (error) {
-      statusEl.textContent = `Resend failed: ${error.message || String(error)}`;
+      const message = String(error.message || error || "Resend failed");
+      if (/rate limit/i.test(message)) {
+        statusEl.textContent = "Resend failed: email rate limit exceeded. Please wait before retrying.";
+      } else {
+        statusEl.textContent = `Resend failed: ${message}`;
+      }
     }
   });
 

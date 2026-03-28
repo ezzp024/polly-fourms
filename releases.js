@@ -7,7 +7,10 @@
     isModerator,
     profileLink,
     buildMemberStats,
-    toHandle
+    toHandle,
+    canPerform,
+    markPerformed,
+    formatWaitMs
   } = window.PollyCommon;
   const api = window.PollyApi.createApi();
 
@@ -70,6 +73,8 @@
             const flags = [
               post.is_pinned ? '<span class="badge badge-pin">Pinned</span>' : "",
               post.is_sticky ? '<span class="badge badge-sticky">Sticky</span>' : "",
+              post.is_locked ? '<span class="badge badge-hidden">Locked</span>' : "",
+              post.is_solved ? '<span class="badge badge-sticky">Solved</span>' : "",
               post.is_hidden ? '<span class="badge badge-hidden">Hidden</span>' : ""
             ].join(" ");
             return `
@@ -135,6 +140,12 @@
 
     const nickname = profile.display_name;
 
+    const gate = canPerform("create_report", 20000);
+    if (!gate.ok) {
+      alert(`Please wait ${formatWaitMs(gate.nextAllowedIn)} before sending another report.`);
+      return;
+    }
+
     if (await api.isNicknameBanned(nickname)) {
       alert("Your account is currently banned from reporting.");
       return;
@@ -145,6 +156,7 @@
 
     try {
       await api.createReport({ post_id: postId, reason, reporter_name: nickname });
+      markPerformed("create_report");
       target.textContent = "Reported";
       setTimeout(() => {
         target.textContent = "Report";

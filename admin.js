@@ -223,5 +223,10 @@
   userRows.addEventListener("click", handleTableActions);
   banRows.addEventListener("click", handleTableActions);
 
-  await renderAdmin();
+  try {
+    await renderAdmin();
+  } catch (error) {
+    adminStatus.textContent = `Admin backend not ready: ${error.message || String(error)}`;
+    adminContent.classList.add("hidden-block");
+  }
 })();
