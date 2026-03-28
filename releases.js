@@ -153,7 +153,7 @@
     }
 
     const reason = prompt("Reason for report:", "Spam, abuse, malware, or unsafe link");
-    if (!reason) return;
+    if (!reason || !String(reason).trim()) return;
 
     try {
       await api.createReport({ post_id: postId, reason, reporter_name: nickname });

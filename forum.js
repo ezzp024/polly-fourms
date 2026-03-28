@@ -53,6 +53,40 @@
   let posts = [];
   let comments = [];
   let memberStats = new Map();
+  let canPost = false;
+
+  function setComposerEnabled(enabled, message) {
+    canPost = enabled;
+    const controls = newThreadForm.querySelectorAll("input, textarea, button");
+    controls.forEach((node) => {
+      node.disabled = !enabled;
+    });
+    newThreadForm.setAttribute("data-status", message || "");
+    const old = newThreadForm.querySelector(".muted");
+    if (old) old.remove();
+    if (message) {
+      const note = document.createElement("p");
+      note.className = "muted";
+      note.textContent = message;
+      newThreadForm.append(note);
+    }
+  }
+
+  async function refreshComposerState() {
+    const user = await window.PollyCommon.getAuthUser();
+    if (!user) {
+      setComposerEnabled(false, "Login required to create a thread.");
+      return;
+    }
+
+    const profile = await window.PollyCommon.fetchMyProfile();
+    if (!profile || !profile.display_name) {
+      setComposerEnabled(false, "Set your display name in Profile settings first.");
+      return;
+    }
+
+    setComposerEnabled(true, "");
+  }
 
   let canModerate = false;
 
@@ -142,12 +176,14 @@
       document.body.classList.add("is-moderator");
     }
     [posts, comments] = await Promise.all([api.getPosts(), api.getComments()]);
+    await refreshComposerState();
     memberStats = buildMemberStats(posts, comments);
     updateTopMetrics(posts, comments);
     posts = posts.filter((p) => p.category === section.key);
     renderRows();
   } catch (error) {
     threadRows.innerHTML = `<tr><td colspan="4" class="muted">Could not load section: ${escapeHtml(error.message || String(error))}</td></tr>`;
+    setComposerEnabled(false, "Could not load account state.");
   }
 
   searchInput.addEventListener("input", () => {
@@ -176,6 +212,11 @@
     }
 
     const nickname = profile.display_name;
+
+    if (!canPost) {
+      alert("Posting is currently unavailable. Check account/profile status.");
+      return;
+    }
 
     if (await api.isNicknameBanned(nickname)) {
       alert("Your account is currently banned from posting.");

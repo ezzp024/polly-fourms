@@ -167,7 +167,11 @@
   async function runAction(action, id, state, rawUser) {
     const nickname = getNickname() || "admin";
 
-    if (action === "resolve-report") return api.resolveReport(id, nickname);
+    if (action === "resolve-report") {
+      await api.resolveReport(id, nickname);
+      await safeLog("resolve_report", "report", id, { actor: nickname });
+      return;
+    }
     if (action === "pin") {
       await api.updatePost(id, { is_pinned: !state });
       await safeLog("toggle_pin", "post", id, { value: !state, actor: nickname });

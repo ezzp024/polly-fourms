@@ -101,6 +101,19 @@
     const isOwner = Boolean(currentUser && post.author_user_id && currentUser.id === post.author_user_id);
     document.body.classList.toggle("is-owner", isOwner);
 
+    const replyBox = replyForm.querySelector("textarea[name='body']");
+    const replyBtn = replyForm.querySelector("button[type='submit']");
+    if (replyBox && replyBtn) {
+      const canReply = Boolean(currentUser) && Boolean(!post.is_locked || canModerate);
+      replyBox.disabled = !canReply;
+      replyBtn.disabled = !canReply;
+      replyBox.placeholder = canReply
+        ? "Write your reply"
+        : post.is_locked
+          ? "Thread is locked"
+          : "Login and set profile to reply";
+    }
+
     togglePin.textContent = post.is_pinned ? "Unpin" : "Pin";
     toggleSticky.textContent = post.is_sticky ? "Unsticky" : "Sticky";
     toggleLock.textContent = post.is_locked ? "Unlock" : "Lock";
@@ -259,7 +272,7 @@
     }
 
     const reason = prompt("Reason for report:", "Spam, abuse, malware, or unsafe link");
-    if (!reason) return;
+    if (!reason || !String(reason).trim()) return;
 
     try {
       await api.createReport({ post_id: cachedPost.id, reason, reporter_name: nickname });
@@ -326,15 +339,15 @@
   editThread.addEventListener("click", async () => {
     if (!cachedPost) return;
     const title = prompt("Edit title", cachedPost.title);
-    if (!title) return;
+    if (!title || !title.trim()) return;
     const body = prompt("Edit body", cachedPost.body);
-    if (!body) return;
+    if (!body || !body.trim()) return;
     const tags = prompt("Edit tags (comma separated)", Array.isArray(cachedPost.tags) ? cachedPost.tags.join(", ") : "");
 
     try {
       await api.updatePost(cachedPost.id, {
         title: title.trim().slice(0, 120),
-        body: body.trim(),
+        body: body.trim().slice(0, 4000),
         tags: normalizeTags(String(tags || ""))
       });
       await safeLog("edit_thread", "post", cachedPost.id, { title: title.trim().slice(0, 120) });
