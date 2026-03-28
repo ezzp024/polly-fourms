@@ -874,6 +874,21 @@ td .bulk-checkbox {
   background: var(--panel-strong);
 }
 
+.textarea-wrapper {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+}
+
+.textarea-wrapper textarea {
+  flex: 1;
+}
+
+.textarea-wrapper .emoji-btn {
+  margin-top: 0.3rem;
+  margin-left: 0.3rem;
+}
+
 .account-actions {
   margin-top: 1rem;
   padding-top: 1rem;
