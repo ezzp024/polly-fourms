@@ -145,16 +145,21 @@ alter table public.reports enable row level security;
 alter table public.banned_users enable row level security;
 alter table public.moderation_logs enable row level security;
 
-create or replace function public.enforce_action_rate_limit(p_action text, p_min_seconds int)
-returns void
+create or replace function public.enforce_action_rate_limit_trigger()
+returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
+  p_action text;
+  p_min_seconds int;
   v_uid uuid;
   v_last timestamptz;
 begin
+  p_action := tg_argv[0];
+  p_min_seconds := coalesce(tg_argv[1]::int, 5);
+
   v_uid := auth.uid();
   if v_uid is null then
     raise exception 'Login required';
@@ -173,11 +178,13 @@ begin
   values (v_uid, p_action, now())
   on conflict (user_id, action)
   do update set last_at = excluded.last_at;
+
+  return new;
 end;
 $$;
 
-revoke all on function public.enforce_action_rate_limit(text, int) from public;
-grant execute on function public.enforce_action_rate_limit(text, int) to authenticated;
+revoke all on function public.enforce_action_rate_limit_trigger() from public;
+grant execute on function public.enforce_action_rate_limit_trigger() to authenticated;
 
 create or replace function public.validate_post_links()
 returns trigger
@@ -212,17 +219,17 @@ $$;
 drop trigger if exists trg_posts_rate_limit_insert on public.posts;
 create trigger trg_posts_rate_limit_insert
 before insert on public.posts
-for each row execute function public.enforce_action_rate_limit('create_thread', 15);
+for each row execute function public.enforce_action_rate_limit_trigger('create_thread', '15');
 
 drop trigger if exists trg_comments_rate_limit_insert on public.comments;
 create trigger trg_comments_rate_limit_insert
 before insert on public.comments
-for each row execute function public.enforce_action_rate_limit('create_comment', 8);
+for each row execute function public.enforce_action_rate_limit_trigger('create_comment', '8');
 
 drop trigger if exists trg_reports_rate_limit_insert on public.reports;
 create trigger trg_reports_rate_limit_insert
 before insert on public.reports
-for each row execute function public.enforce_action_rate_limit('create_report', 20);
+for each row execute function public.enforce_action_rate_limit_trigger('create_report', '20');
 
 drop trigger if exists trg_posts_validate_links_insupd on public.posts;
 create trigger trg_posts_validate_links_insupd
