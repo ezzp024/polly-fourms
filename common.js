@@ -6,6 +6,9 @@
   let authClient = null;
   let sessionVerified = false;
   let storageListenerInitialized = false;
+  let navRefreshToken = 0;
+  let lastKnownUser = null;
+  let lastKnownUserAt = 0;
   const identityState = {
     loaded: false,
     user: null,
@@ -22,19 +25,7 @@
         identityState.user = null;
         identityState.profile = null;
         sessionVerified = false;
-        
-        const nav = document.querySelector("nav.main-nav .nav-inner");
-        if (nav) {
-          const loginLink = nav.querySelector('a[href="auth.html"]');
-          if (loginLink) {
-            loginLink.textContent = "Login";
-            loginLink.href = "auth.html";
-          }
-          const logoutNode = nav.querySelector('[data-session-link="logout"]');
-          if (logoutNode) logoutNode.remove();
-        }
-        
-        document.body.classList.remove("is-admin");
+        void refreshSessionNav();
       }
     });
   }
@@ -653,6 +644,7 @@
   }
 
   async function initSessionNav() {
+    const refreshId = ++navRefreshToken;
     const nav = document.querySelector("nav.main-nav .nav-inner");
     if (!nav) return;
 
@@ -660,36 +652,63 @@
     if (!loginLink) return;
 
     const user = await getAuthUser();
+    if (refreshId !== navRefreshToken) return;
     const isLoggedIn = Boolean(user);
+    const logoutNode = nav.querySelector('[data-session-link="logout"]');
+    const adminLinks = [...nav.querySelectorAll('a[href="admin.html"]')];
 
     if (!isLoggedIn) {
       loginLink.textContent = "Login";
       loginLink.href = "auth.html";
-      const logoutNode = nav.querySelector('[data-session-link="logout"]');
       if (logoutNode) logoutNode.remove();
+      adminLinks.forEach((link) => link.remove());
+      document.body.classList.remove("is-admin");
       return;
     }
 
     loginLink.textContent = "Account";
     loginLink.href = "auth.html";
 
-    const existingLogout = nav.querySelector('[data-session-link="logout"]');
-    if (existingLogout) return;
+    if (!logoutNode) {
+      const logout = document.createElement("a");
+      logout.href = "#";
+      logout.dataset.sessionLink = "logout";
+      logout.textContent = "Logout";
+      logout.addEventListener("click", async (event) => {
+        event.preventDefault();
+        const client = createAuthClient();
+        if (client) {
+          await client.auth.signOut();
+        }
+        lastKnownUser = null;
+        lastKnownUserAt = 0;
+        localStorage.removeItem(SESSION_CHECK_KEY);
+        window.location.href = "index.html";
+      });
+      nav.appendChild(logout);
+    }
 
-    const logout = document.createElement("a");
-    logout.href = "#";
-    logout.dataset.sessionLink = "logout";
-    logout.textContent = "Logout";
-    logout.addEventListener("click", async (event) => {
-      event.preventDefault();
-      const client = createAuthClient();
-      if (client) {
-        await client.auth.signOut();
+    const isAdmin = await hasAdminSession();
+    if (refreshId !== navRefreshToken) return;
+    document.body.classList.toggle("is-admin", isAdmin);
+
+    let adminLink = nav.querySelector('[data-session-link="admin"]');
+    if (isAdmin && !adminLink) {
+      adminLink = document.createElement("a");
+      adminLink.href = "admin.html";
+      adminLink.dataset.sessionLink = "admin";
+      adminLink.className = "admin-only";
+      adminLink.textContent = "Admin Panel";
+      const discordLink = nav.querySelector("a.discord-btn");
+      if (discordLink && discordLink.parentNode === nav) {
+        nav.insertBefore(adminLink, discordLink);
+      } else {
+        nav.appendChild(adminLink);
       }
-      localStorage.removeItem(SESSION_CHECK_KEY);
-      window.location.href = "index.html";
-    });
-    nav.appendChild(logout);
+    }
+    if (!isAdmin) {
+      adminLinks.forEach((link) => link.remove());
+    }
   }
 
   async function refreshSessionNav() {
@@ -702,17 +721,30 @@
     
     try {
       const { data, error } = await client.auth.getUser();
-      if (error) {
-        console.warn("Auth getUser error:", error.message);
-        return null;
-      }
-      
-      if (data && data.user) {
+      if (!error && data && data.user) {
+        identityState.user = data.user;
         sessionVerified = true;
+        lastKnownUser = data.user;
+        lastKnownUserAt = Date.now();
         localStorage.setItem(SESSION_CHECK_KEY, Date.now().toString());
         return data.user;
       }
-      
+
+      const { data: sessionData } = await client.auth.getSession();
+      if (sessionData && sessionData.session && sessionData.session.user) {
+        const sessionUser = sessionData.session.user;
+        identityState.user = sessionUser;
+        sessionVerified = true;
+        lastKnownUser = sessionUser;
+        lastKnownUserAt = Date.now();
+        localStorage.setItem(SESSION_CHECK_KEY, Date.now().toString());
+        return sessionUser;
+      }
+
+      if (lastKnownUser && Date.now() - lastKnownUserAt < 30000) {
+        return lastKnownUser;
+      }
+
       const stored = localStorage.getItem(SESSION_CHECK_KEY);
       if (stored) {
         const storedTime = parseInt(stored, 10);
@@ -720,10 +752,15 @@
           return null;
         }
       }
-      
+
+      lastKnownUser = null;
+      lastKnownUserAt = 0;
       return null;
     } catch (err) {
       console.warn("Auth getUser exception:", err.message);
+      if (lastKnownUser && Date.now() - lastKnownUserAt < 30000) {
+        return lastKnownUser;
+      }
       return null;
     }
   }
