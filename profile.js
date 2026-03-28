@@ -29,8 +29,10 @@
   const accountDisplayName = document.getElementById("accountDisplayName");
   const friendActionStatus = document.getElementById("friendActionStatus");
   const addFriendBtn = document.getElementById("addFriendBtn");
+  const acceptFriendBtn = document.getElementById("acceptFriendBtn");
   const removeFriendBtn = document.getElementById("removeFriendBtn");
   const myFriendsList = document.getElementById("myFriendsList");
+  const incomingFriendRequests = document.getElementById("incomingFriendRequests");
 
   const query = new URLSearchParams(window.location.search);
   const targetHandle = toHandle(query.get("user") || "");
@@ -40,6 +42,7 @@
   let selectedMember = null;
   let myProfile = null;
   let myFriends = [];
+  let myIncomingRequests = [];
 
   function setFriendStatus(text) {
     if (friendActionStatus) friendActionStatus.textContent = text;
@@ -54,6 +57,15 @@
       : '<p class="muted">No friends yet.</p>';
   }
 
+  function renderIncomingRequests() {
+    if (!incomingFriendRequests) return;
+    incomingFriendRequests.innerHTML = myIncomingRequests.length
+      ? myIncomingRequests
+          .map((row) => `<article class="stack-item"><strong>${escapeHtml(row.from)}</strong><small>${formatDate(row.created_at)}</small></article>`)
+          .join("")
+      : '<p class="muted">No pending requests.</p>';
+  }
+
   function updateFriendControls() {
     const me = String(myProfile?.display_name || "").trim();
     const target = String(selectedMember?.displayName || "").trim();
@@ -61,8 +73,10 @@
     const targetExists = Boolean(target);
     const isSelf = ready && targetExists && me.toLowerCase() === target.toLowerCase();
     const isFriend = targetExists && myFriends.some((name) => name.toLowerCase() === target.toLowerCase());
+    const hasIncoming = targetExists && myIncomingRequests.some((row) => String(row.from || "").toLowerCase() === target.toLowerCase());
 
     if (addFriendBtn) addFriendBtn.disabled = !ready || !targetExists || isSelf || isFriend;
+    if (acceptFriendBtn) acceptFriendBtn.disabled = !ready || !targetExists || isSelf || !hasIncoming;
     if (removeFriendBtn) removeFriendBtn.disabled = !ready || !targetExists || isSelf || !isFriend;
 
     if (!ready) {
@@ -77,7 +91,11 @@
       setFriendStatus("This is your profile.");
       return;
     }
-    setFriendStatus(isFriend ? `You and ${target} are friends.` : `You are not friends with ${target}.`);
+    if (hasIncoming) {
+      setFriendStatus(`${target} sent you a friend request.`);
+      return;
+    }
+    setFriendStatus(isFriend ? `You and ${target} are friends.` : `No friendship yet with ${target}. Send a request to connect.`);
   }
 
   async function refreshFriends() {
@@ -85,13 +103,21 @@
       myProfile = await window.PollyCommon.fetchMyProfile();
       if (myProfile && myProfile.display_name) {
         myFriends = await api.getMyFriends();
+        if (typeof api.getIncomingFriendRequests === "function") {
+          myIncomingRequests = await api.getIncomingFriendRequests();
+        } else {
+          myIncomingRequests = [];
+        }
       } else {
         myFriends = [];
+        myIncomingRequests = [];
       }
     } catch {
       myFriends = [];
+      myIncomingRequests = [];
     }
     renderMyFriends();
+    renderIncomingRequests();
     updateFriendControls();
   }
 
@@ -253,7 +279,7 @@
       try {
         await api.addFriend(target);
         await refreshFriends();
-        setFriendStatus(`Added ${target} as friend.`);
+        setFriendStatus(`Friend request sent to ${target}.`);
       } catch (error) {
         setFriendStatus(`Could not add friend: ${error.message || String(error)}`);
       }
@@ -270,6 +296,23 @@
         setFriendStatus(`Removed ${target} from friends.`);
       } catch (error) {
         setFriendStatus(`Could not remove friend: ${error.message || String(error)}`);
+      }
+    });
+  }
+
+  if (acceptFriendBtn) {
+    acceptFriendBtn.addEventListener("click", async () => {
+      const target = String(selectedMember?.displayName || "").trim();
+      if (!target) return;
+      try {
+        if (typeof api.acceptFriendRequest !== "function") {
+          throw new Error("Friend request acceptance is not available in this mode.");
+        }
+        await api.acceptFriendRequest(target);
+        await refreshFriends();
+        setFriendStatus(`Accepted friend request from ${target}.`);
+      } catch (error) {
+        setFriendStatus(`Could not accept friend request: ${error.message || String(error)}`);
       }
     });
   }

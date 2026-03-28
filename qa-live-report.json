@@ -1,12 +1,21 @@
 {
-  "startedAt": "2026-03-28T14:26:45.294Z",
-  "finishedAt": "2026-03-28T14:27:22.130Z",
+  "startedAt": "2026-03-28T15:14:02.211Z",
+  "finishedAt": "2026-03-28T15:14:39.840Z",
   "supabaseConfigured": true,
   "liveBaseUrl": "https://ezzp024.github.io/polly-fourms",
-  "totalChecks": 41,
-  "passedChecks": 38,
-  "failedChecks": 3,
-  "overall": "FAIL",
+  "totalChecks": 49,
+  "passedChecks": 49,
+  "failedChecks": 0,
+  "overall": "PASS",
+  "comparison": {
+    "hasPrevious": true,
+    "fixedSinceLastRun": [
+      "forum:create-post-non-admin"
+    ],
+    "unresolvedFromLastRun": [],
+    "newlyDiscoveredIssues": [],
+    "potentialFalseFixClaims": []
+  },
   "checks": [
     {
       "name": "page:https://ezzp024.github.io/polly-fourms/",
@@ -161,7 +170,13 @@
       "name": "forum:create-post-non-admin",
       "ok": true,
       "status": 201,
-      "note": "post id 995bdfed-b60c-460f-817c-a24eecf74f7b"
+      "note": "post id 701d7b72-e45d-4fa6-97fa-94904800ccb0"
+    },
+    {
+      "name": "feature:download-link-hidden-before-approval",
+      "ok": true,
+      "status": 200,
+      "note": "link hidden until admin approval"
     },
     {
       "name": "forum:create-comment-non-admin",
@@ -203,7 +218,37 @@
       "name": "admin:can-read-reports",
       "ok": true,
       "status": 200,
-      "note": "rows=13"
+      "note": "rows=28"
+    },
+    {
+      "name": "admin:can-read-pending-download-links",
+      "ok": true,
+      "status": 200,
+      "note": "pending link visible to admin"
+    },
+    {
+      "name": "admin:approve-download-link",
+      "ok": true,
+      "status": 200,
+      "note": "download link approved"
+    },
+    {
+      "name": "feature:download-link-visible-after-approval",
+      "ok": true,
+      "status": 200,
+      "note": "link visible after admin approval"
+    },
+    {
+      "name": "admin:ban-download-domain",
+      "ok": true,
+      "status": 201,
+      "note": "blocked malware-1774710851967.example.com"
+    },
+    {
+      "name": "security:blocked-download-domain-enforced",
+      "ok": true,
+      "status": 400,
+      "note": "blocked domain rejected"
     },
     {
       "name": "admin:resolve-report",
@@ -227,7 +272,7 @@
       "name": "admin:ban-user",
       "ok": true,
       "status": 201,
-      "note": "ban id 4603289e-ff81-4bf1-80ad-eb98157280bf"
+      "note": "ban id 2fd35905-c977-4c03-8608-dc5774d5c6f7"
     },
     {
       "name": "admin:unban-user",
@@ -243,20 +288,32 @@
     },
     {
       "name": "feature:add-friend",
-      "ok": false,
-      "status": 404,
-      "note": "{\"code\":\"PGRST205\",\"details\":null,\"hint\":null,\"message\":\"Could not find the table 'public.friendships' in the schema cache\"}"
+      "ok": true,
+      "status": 201,
+      "note": "friend request sent"
+    },
+    {
+      "name": "feature:friend-request-visible-to-addressee",
+      "ok": true,
+      "status": 200,
+      "note": "request visible to addressee"
+    },
+    {
+      "name": "feature:accept-friend-request",
+      "ok": true,
+      "status": 204,
+      "note": "friend request accepted"
     },
     {
       "name": "feature:list-friends-after-add",
-      "ok": false,
-      "note": "friend not found after add"
+      "ok": true,
+      "note": "friend appears in list"
     },
     {
       "name": "feature:remove-friend",
-      "ok": false,
-      "status": 404,
-      "note": "{\"code\":\"PGRST205\",\"details\":null,\"hint\":null,\"message\":\"Could not find the table 'public.friendships' in the schema cache\"}"
+      "ok": true,
+      "status": 204,
+      "note": "friend removed"
     }
   ]
 }

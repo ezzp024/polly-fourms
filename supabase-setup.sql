@@ -99,9 +99,29 @@ create table if not exists public.friendships (
   requester_name text not null check (char_length(requester_name) between 2 and 24),
   addressee_user_id uuid not null references auth.users(id) on delete cascade,
   addressee_name text not null check (char_length(addressee_name) between 2 and 24),
-  status text not null default 'accepted' check (status in ('accepted')),
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'rejected')),
+  accepted_at timestamptz,
   created_at timestamptz not null default now(),
   check (requester_user_id <> addressee_user_id)
+);
+
+alter table public.friendships add column if not exists accepted_at timestamptz;
+alter table public.friendships drop constraint if exists friendships_status_check;
+alter table public.friendships add constraint friendships_status_check check (status in ('pending', 'accepted', 'rejected'));
+
+create table if not exists public.download_link_submissions (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.posts(id) on delete cascade,
+  submitted_by_user_id uuid not null references auth.users(id) on delete cascade,
+  submitted_by_name text not null check (char_length(submitted_by_name) between 2 and 24),
+  submitted_url text not null,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  security_check_status text not null default 'pending' check (security_check_status in ('pending', 'passed', 'failed')),
+  security_check_notes text not null default '',
+  reviewed_by text,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (post_id)
 );
 
 create unique index if not exists idx_friendships_pair_unique on public.friendships (
@@ -116,7 +136,7 @@ begin
     select schemaname, tablename, policyname
     from pg_policies
     where schemaname = 'public'
-      and tablename in ('profiles','posts','comments','reports','banned_users','moderation_logs','friendships')
+      and tablename in ('profiles','posts','comments','reports','banned_users','moderation_logs','friendships','download_link_submissions')
   loop
     execute format('drop policy if exists %I on %I.%I', r.policyname, r.schemaname, r.tablename);
   end loop;
@@ -156,6 +176,9 @@ create index if not exists idx_banned_users_user_id_active on public.banned_user
 create index if not exists idx_banned_users_nickname_active on public.banned_users (nickname, active);
 create index if not exists idx_friendships_requester on public.friendships (requester_user_id);
 create index if not exists idx_friendships_addressee on public.friendships (addressee_user_id);
+create index if not exists idx_friendships_status on public.friendships (status);
+create index if not exists idx_download_link_submissions_status on public.download_link_submissions (status);
+create index if not exists idx_download_link_submissions_submitter on public.download_link_submissions (submitted_by_user_id);
 
 alter table public.profiles enable row level security;
 alter table public.posts enable row level security;
@@ -164,6 +187,7 @@ alter table public.reports enable row level security;
 alter table public.banned_users enable row level security;
 alter table public.moderation_logs enable row level security;
 alter table public.friendships enable row level security;
+alter table public.download_link_submissions enable row level security;
 
 create or replace function public.enforce_action_rate_limit_trigger()
 returns trigger
@@ -235,6 +259,191 @@ begin
   return new;
 end;
 $$;
+
+create or replace function public.handle_post_download_link_submission()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_url text;
+  v_domain text;
+begin
+  if new.software_url is null or length(trim(new.software_url)) = 0 then
+    return new;
+  end if;
+
+  v_url := trim(new.software_url);
+  if v_url !~* '^https://' then
+    raise exception 'Only HTTPS links are allowed.';
+  end if;
+
+  v_domain := lower(split_part(replace(replace(v_url, 'https://', ''), 'http://', ''), '/', 1));
+  if exists (select 1 from public.blocked_link_domains b where b.domain = v_domain) then
+    raise exception 'Unsafe link domain is blocked.';
+  end if;
+
+  if public.is_admin() then
+    return new;
+  end if;
+
+  if auth.uid() is null then
+    raise exception 'Login required';
+  end if;
+
+  if new.author_user_id is distinct from auth.uid() then
+    raise exception 'Permission denied for this action.';
+  end if;
+
+  insert into public.download_link_submissions(
+    post_id,
+    submitted_by_user_id,
+    submitted_by_name,
+    submitted_url,
+    status,
+    security_check_status,
+    security_check_notes,
+    reviewed_by,
+    reviewed_at,
+    created_at
+  )
+  values (
+    new.id,
+    auth.uid(),
+    new.author_name,
+    v_url,
+    'pending',
+    'pending',
+    '',
+    null,
+    null,
+    now()
+  )
+  on conflict (post_id)
+  do update set
+    submitted_url = excluded.submitted_url,
+    submitted_by_user_id = excluded.submitted_by_user_id,
+    submitted_by_name = excluded.submitted_by_name,
+    status = 'pending',
+    security_check_status = 'pending',
+    security_check_notes = '',
+    reviewed_by = null,
+    reviewed_at = null,
+    created_at = now();
+
+  update public.posts
+  set software_url = null
+  where id = new.id
+    and software_url is not null;
+
+  return new;
+end;
+$$;
+
+create or replace function public.enforce_download_link_review_requirements()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.status = old.status then
+    return new;
+  end if;
+
+  if old.status <> 'pending' then
+    raise exception 'Only pending download links can be reviewed.';
+  end if;
+
+  if new.status = 'approved' then
+    if new.security_check_status <> 'passed' then
+      raise exception 'Security check must pass before approval.';
+    end if;
+  elsif new.status = 'rejected' then
+    if new.security_check_status = 'pending' then
+      raise exception 'Security check status must be set before rejection.';
+    end if;
+  else
+    raise exception 'Invalid review status.';
+  end if;
+
+  if char_length(trim(coalesce(new.security_check_notes, ''))) < 8 then
+    raise exception 'Security review notes are required.';
+  end if;
+
+  if trim(coalesce(new.reviewed_by, '')) = '' then
+    raise exception 'Reviewer identity is required.';
+  end if;
+
+  new.reviewed_at := now();
+  return new;
+end;
+$$;
+
+create or replace function public.sync_approved_download_link_to_post()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.status = 'approved' then
+    update public.posts
+    set software_url = new.submitted_url
+    where id = new.post_id;
+  elsif new.status = 'rejected' then
+    update public.posts
+    set software_url = null
+    where id = new.post_id;
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.review_download_link_submission(
+  p_submission_id uuid,
+  p_decision text,
+  p_security_check_status text,
+  p_security_notes text,
+  p_reviewed_by text
+)
+returns public.download_link_submissions
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_submission public.download_link_submissions;
+begin
+  if not public.is_admin() then
+    raise exception 'Permission denied for this action.';
+  end if;
+
+  if p_decision not in ('approved', 'rejected') then
+    raise exception 'Decision must be approved or rejected.';
+  end if;
+
+  update public.download_link_submissions
+  set status = p_decision,
+      security_check_status = coalesce(nullif(trim(p_security_check_status), ''), security_check_status),
+      security_check_notes = coalesce(p_security_notes, ''),
+      reviewed_by = nullif(trim(coalesce(p_reviewed_by, '')), '')
+  where id = p_submission_id
+    and status = 'pending'
+  returning * into v_submission;
+
+  if v_submission.id is null then
+    raise exception 'Pending submission not found.';
+  end if;
+
+  return v_submission;
+end;
+$$;
+
+revoke all on function public.review_download_link_submission(uuid, text, text, text, text) from public;
+grant execute on function public.review_download_link_submission(uuid, text, text, text, text) to authenticated;
 
 create or replace function public.enforce_profile_display_name_rules()
 returns trigger
@@ -388,6 +597,11 @@ create trigger trg_posts_validate_links_insupd
 before insert or update on public.posts
 for each row execute function public.validate_post_links();
 
+drop trigger if exists trg_posts_handle_download_link_submission on public.posts;
+create trigger trg_posts_handle_download_link_submission
+after insert or update on public.posts
+for each row execute function public.handle_post_download_link_submission();
+
 drop trigger if exists trg_posts_owner_guard_update on public.posts;
 create trigger trg_posts_owner_guard_update
 before update on public.posts
@@ -397,6 +611,16 @@ drop trigger if exists trg_comments_owner_guard_update on public.comments;
 create trigger trg_comments_owner_guard_update
 before update on public.comments
 for each row execute function public.enforce_comment_owner_update_rules();
+
+drop trigger if exists trg_download_link_submissions_review_guard on public.download_link_submissions;
+create trigger trg_download_link_submissions_review_guard
+before update on public.download_link_submissions
+for each row execute function public.enforce_download_link_review_requirements();
+
+drop trigger if exists trg_download_link_submissions_sync_post on public.download_link_submissions;
+create trigger trg_download_link_submissions_sync_post
+after update on public.download_link_submissions
+for each row execute function public.sync_approved_download_link_to_post();
 
 create policy "Public read profiles"
 on public.profiles for select
@@ -534,7 +758,8 @@ create policy "Create own friendships"
 on public.friendships for insert
 to authenticated
 with check (
-  (requester_user_id = auth.uid() or addressee_user_id = auth.uid())
+  requester_user_id = auth.uid()
+  and status = 'pending'
   and exists (
     select 1
     from public.profiles p1
@@ -549,7 +774,50 @@ with check (
   )
 );
 
+create policy "Accept own friend requests"
+on public.friendships for update
+to authenticated
+using (addressee_user_id = auth.uid() or public.is_admin())
+with check (
+  (
+    status in ('accepted', 'rejected')
+    and (addressee_user_id = auth.uid() or public.is_admin())
+  )
+  or public.is_admin()
+);
+
 create policy "Delete own friendships"
 on public.friendships for delete
 to authenticated
 using (requester_user_id = auth.uid() or addressee_user_id = auth.uid() or public.is_admin());
+
+create policy "Read download submissions"
+on public.download_link_submissions for select
+to authenticated
+using (submitted_by_user_id = auth.uid() or public.is_admin());
+
+create policy "Create own download submissions"
+on public.download_link_submissions for insert
+to authenticated
+with check (
+  submitted_by_user_id = auth.uid()
+  and status = 'pending'
+  and security_check_status = 'pending'
+  and exists (
+    select 1
+    from public.posts p
+    where p.id = post_id
+      and p.author_user_id = auth.uid()
+  )
+);
+
+create policy "Admin review download submissions"
+on public.download_link_submissions for update
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy "Admin delete download submissions"
+on public.download_link_submissions for delete
+to authenticated
+using (public.is_admin());

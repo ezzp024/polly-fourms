@@ -25,6 +25,7 @@
   const adminContent = document.getElementById("adminContent");
   const adminStats = document.getElementById("adminStats");
   const reportRows = document.getElementById("reportRows");
+  const downloadReviewRows = document.getElementById("downloadReviewRows");
   const controlRows = document.getElementById("controlRows");
   const userRows = document.getElementById("userRows");
   const banRows = document.getElementById("banRows");
@@ -87,11 +88,12 @@
   }
 
   async function renderAdmin() {
-    const [posts, comments, reports, bans] = await Promise.all([
+    const [posts, comments, reports, bans, pendingDownloads] = await Promise.all([
       api.getPosts(),
       api.getComments(),
       api.getReports(),
-      api.getBannedUsers()
+      api.getBannedUsers(),
+      api.getPendingDownloadLinks()
     ]);
 
     const memberStats = buildMemberStats(posts, comments);
@@ -152,6 +154,7 @@
       <article><strong>${comments.length}</strong><small>Total Replies</small></article>
       <article><strong>${members.length}</strong><small>Registered Users</small></article>
       <article><strong>${openReports.length}</strong><small>Open Reports</small></article>
+      <article><strong>${pendingDownloads.length}</strong><small>Pending Link Reviews</small></article>
       <article><strong>${activeBans.length}</strong><small>Active Bans</small></article>
       <article><strong>${hiddenThreads.length}</strong><small>Hidden Threads</small></article>
     `;
@@ -209,6 +212,30 @@
           .join("")
       : '<tr><td colspan="5" class="muted">No reports match this filter.</td></tr>';
 
+    if (downloadReviewRows) {
+      downloadReviewRows.innerHTML = (pendingDownloads || []).length
+        ? pendingDownloads
+            .map((item) => {
+              const safeUrl = escapeHtml(String(item.submitted_url || ""));
+              const encodedUrl = encodeURIComponent(String(item.submitted_url || ""));
+              return `
+                <tr>
+                  <td><a href="thread.html?id=${item.post_id}">${escapeHtml(String(item.post_title || "Unknown thread"))}</a></td>
+                  <td><a href="${profileLink(item.submitted_by_name)}">${escapeHtml(String(item.submitted_by_name || "member"))}</a></td>
+                  <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl.slice(0, 60)}${safeUrl.length > 60 ? "..." : ""}</a></td>
+                  <td>${formatDate(item.created_at)}</td>
+                  <td>
+                    <button type="button" data-action="approve-download" data-id="${item.id}">Approve</button>
+                    <button type="button" data-action="reject-download" data-id="${item.id}">Reject</button>
+                    <button type="button" data-action="ban-domain" data-url="${encodedUrl}">Ban Domain</button>
+                  </td>
+                </tr>
+              `;
+            })
+            .join("")
+        : '<tr><td colspan="5" class="muted">No pending download links.</td></tr>';
+    }
+
     controlRows.innerHTML = filteredPosts.length
       ? filteredPosts
           .map((post) => {
@@ -254,7 +281,7 @@
     };
   }
 
-  async function runAction(action, id, state, rawUser) {
+  async function runAction(action, id, state, rawUser, rawUrl) {
     const nickname = getNickname() || "admin";
 
     if (action === "resolve-report") {
@@ -320,6 +347,36 @@
     if (action === "unban") {
       await api.unbanUser(id);
       await safeLog("unban_user", "ban", id, { actor: nickname });
+      return;
+    }
+    if (action === "approve-download") {
+      const notes = prompt("Manual antivirus/security check notes (required):", "VirusTotal checked, no detections.");
+      if (!notes || !String(notes).trim()) return;
+      await api.reviewDownloadLink(id, "approved", nickname, notes);
+      await safeLog("approve_download_link", "download_link_submission", id, { actor: nickname, notes });
+      return;
+    }
+    if (action === "reject-download") {
+      const notes = prompt("Manual antivirus/security rejection notes (required):", "Security review failed.");
+      if (!notes || !String(notes).trim()) return;
+      await api.reviewDownloadLink(id, "rejected", nickname, notes);
+      await safeLog("reject_download_link", "download_link_submission", id, { actor: nickname, notes });
+      return;
+    }
+    if (action === "ban-domain") {
+      const raw = rawUrl;
+      if (!raw) return;
+      let hostname = "";
+      try {
+        hostname = new URL(raw).hostname;
+      } catch {
+        hostname = String(raw || "").replace(/^https?:\/\//i, "").split("/")[0];
+      }
+      if (!hostname) return;
+      const confirmed = confirm(`Ban domain ${hostname} from future downloads?`);
+      if (!confirmed) return;
+      await api.banDownloadDomain(hostname);
+      await safeLog("ban_download_domain", "domain", hostname, { actor: nickname });
     }
   }
 
@@ -345,10 +402,11 @@
     const id = button.getAttribute("data-id") || "";
     const state = button.getAttribute("data-state") === "1";
     const rawUser = button.getAttribute("data-user") || "";
+    const rawUrl = decodeURIComponent(button.getAttribute("data-url") || "");
     if (!action) return;
 
     try {
-      await runAction(action, id, state, rawUser);
+      await runAction(action, id, state, rawUser, rawUrl);
       await renderAdmin();
     } catch (error) {
       showPageNotice(`Action failed: ${error.message || String(error)}`, "error", 5200);
@@ -356,6 +414,7 @@
   }
 
   reportRows.addEventListener("click", handleTableActions);
+  if (downloadReviewRows) downloadReviewRows.addEventListener("click", handleTableActions);
   controlRows.addEventListener("click", handleTableActions);
   userRows.addEventListener("click", handleTableActions);
   banRows.addEventListener("click", handleTableActions);

@@ -59,6 +59,7 @@
         <p class="muted" id="friendActionStatus">Login and set your display name to manage friends.</p>
         <div class="account-actions">
           <button type="button" id="addFriendBtn">Add Friend</button>
+          <button type="button" id="acceptFriendBtn">Accept Request</button>
           <button type="button" id="removeFriendBtn" class="btn-secondary">Remove Friend</button>
         </div>
       </div>
@@ -89,6 +90,11 @@
     </section>
 
     <aside class="sidebar">
+      <section class="panel mini-panel">
+        <h2>Incoming Requests</h2>
+        <div id="incomingFriendRequests" class="stack-list"></div>
+      </section>
+
       <section class="panel mini-panel">
         <h2>My Friends</h2>
         <div id="myFriendsList" class="stack-list"></div>

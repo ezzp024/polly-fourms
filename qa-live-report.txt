@@ -1,5 +1,17 @@
-Live QA Bot: FAIL
-Checks: 38/41 passed
+Newly Discovered Issues (Top Priority):
+- none
+
+Unresolved Issues From Previous Run:
+- none
+
+Fixed Since Previous Run:
+- forum:create-post-non-admin
+
+Potential False-Fix Claims:
+- none
+
+Live QA Bot: PASS
+Checks: 49/49 passed
 Base URL: https://ezzp024.github.io/polly-fourms
 
 [PASS] page:https://ezzp024.github.io/polly-fourms/
@@ -38,7 +50,9 @@ Base URL: https://ezzp024.github.io/polly-fourms
 [PASS] profile:upsert-non-admin
   profile upsert ok
 [PASS] forum:create-post-non-admin
-  post id 995bdfed-b60c-460f-817c-a24eecf74f7b
+  post id 701d7b72-e45d-4fa6-97fa-94904800ccb0
+[PASS] feature:download-link-hidden-before-approval
+  link hidden until admin approval
 [PASS] forum:create-comment-non-admin
   comment created
 [PASS] forum:create-report-non-admin
@@ -52,7 +66,17 @@ Base URL: https://ezzp024.github.io/polly-fourms
 [PASS] auth:admin-rpc-is_admin
   is_admin returned true
 [PASS] admin:can-read-reports
-  rows=13
+  rows=28
+[PASS] admin:can-read-pending-download-links
+  pending link visible to admin
+[PASS] admin:approve-download-link
+  download link approved
+[PASS] feature:download-link-visible-after-approval
+  link visible after admin approval
+[PASS] admin:ban-download-domain
+  blocked malware-1774710851967.example.com
+[PASS] security:blocked-download-domain-enforced
+  blocked domain rejected
 [PASS] admin:resolve-report
   report resolved
 [PASS] admin:moderate-post-hide-lock
@@ -60,14 +84,18 @@ Base URL: https://ezzp024.github.io/polly-fourms
 [PASS] admin:moderate-post-unhide-unlock
   unhide/unlock ok
 [PASS] admin:ban-user
-  ban id 4603289e-ff81-4bf1-80ad-eb98157280bf
+  ban id 2fd35905-c977-4c03-8608-dc5774d5c6f7
 [PASS] admin:unban-user
   unban ok
 [PASS] admin:cleanup-delete-created-post
   cleanup ok
-[FAIL] feature:add-friend
-  {"code":"PGRST205","details":null,"hint":null,"message":"Could not find the table 'public.friendships' in the schema cache"}
-[FAIL] feature:list-friends-after-add
-  friend not found after add
-[FAIL] feature:remove-friend
-  {"code":"PGRST205","details":null,"hint":null,"message":"Could not find the table 'public.friendships' in the schema cache"}
+[PASS] feature:add-friend
+  friend request sent
+[PASS] feature:friend-request-visible-to-addressee
+  request visible to addressee
+[PASS] feature:accept-friend-request
+  friend request accepted
+[PASS] feature:list-friends-after-add
+  friend appears in list
+[PASS] feature:remove-friend
+  friend removed

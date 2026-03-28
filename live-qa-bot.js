@@ -10,6 +10,64 @@ function parseConfig() {
   return { supabaseUrl, supabaseAnonKey };
 }
 
+function loadPreviousReport() {
+  try {
+    const raw = fs.readFileSync("qa-live-report.json", "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function compareWithPrevious(previousReport, currentChecks) {
+  if (!previousReport || !Array.isArray(previousReport.checks)) {
+    return {
+      hasPrevious: false,
+      fixedSinceLastRun: [],
+      unresolvedFromLastRun: [],
+      newlyDiscoveredIssues: [],
+      potentialFalseFixClaims: []
+    };
+  }
+
+  const previousByName = new Map(previousReport.checks.map((check) => [check.name, check]));
+  const fixedSinceLastRun = [];
+  const unresolvedFromLastRun = [];
+  const newlyDiscoveredIssues = [];
+  const potentialFalseFixClaims = [];
+
+  for (const check of currentChecks) {
+    const previous = previousByName.get(check.name);
+    if (!previous) {
+      if (!check.ok) newlyDiscoveredIssues.push(check.name);
+      continue;
+    }
+
+    if (!previous.ok && check.ok) {
+      fixedSinceLastRun.push(check.name);
+    }
+    if (!previous.ok && !check.ok) {
+      unresolvedFromLastRun.push(check.name);
+    }
+    if (previous.ok && !check.ok) {
+      newlyDiscoveredIssues.push(check.name);
+    }
+
+    const previousMarkedFixed = /fixed|resolved|patched|done/i.test(String(previous.note || ""));
+    if (previousMarkedFixed && !check.ok) {
+      potentialFalseFixClaims.push(check.name);
+    }
+  }
+
+  return {
+    hasPrevious: true,
+    fixedSinceLastRun,
+    unresolvedFromLastRun,
+    newlyDiscoveredIssues,
+    potentialFalseFixClaims
+  };
+}
+
 function createCheck(name, ok, details) {
   return { name, ok: Boolean(ok), ...(details || {}) };
 }
@@ -151,7 +209,8 @@ async function runAuthAndForumFlow(baseUrl, anonKey) {
   const cleanup = {
     createdPostId: null,
     createdReportId: null,
-    nonAdminDisplayName: null
+    nonAdminDisplayName: null,
+    blockedLinkPostId: null
   };
 
   const runId = Date.now();
@@ -228,7 +287,7 @@ async function runAuthAndForumFlow(baseUrl, anonKey) {
         title: `QA thread ${runId}`,
         body: "Automated QA thread body",
         category: "general",
-        software_url: null,
+        software_url: `https://downloads.example.com/qa-${runId}.zip`,
         tags: ["qa", "automation"],
         author_name: nonAdminDisplayName,
         author_user_id: nonAdminUserId
@@ -245,6 +304,18 @@ async function runAuthAndForumFlow(baseUrl, anonKey) {
   );
 
   if (cleanup.createdPostId) {
+    const hiddenLinkRes = await apiRequest(baseUrl, `/rest/v1/posts?id=eq.${cleanup.createdPostId}&select=id,software_url`, {
+      headers: authHeaders(anonKey, nonAdminToken)
+    });
+    const hiddenRow = Array.isArray(hiddenLinkRes.json) ? hiddenLinkRes.json[0] : null;
+    const hiddenBeforeApproval = Boolean(hiddenRow) && !hiddenRow.software_url;
+    checks.push(
+      createCheck("feature:download-link-hidden-before-approval", hiddenBeforeApproval, {
+        status: hiddenLinkRes.status,
+        note: hiddenBeforeApproval ? "link hidden until admin approval" : "link is visible before admin approval"
+      })
+    );
+
     const createCommentRes = await apiRequest(baseUrl, "/rest/v1/comments", {
       method: "POST",
       headers: authHeaders(anonKey, nonAdminToken, { Prefer: "return=representation" }),
@@ -365,6 +436,98 @@ async function runAuthAndForumFlow(baseUrl, anonKey) {
     })
   );
 
+  if (cleanup.createdPostId) {
+    const pendingSubmissionRes = await apiRequest(
+      baseUrl,
+      `/rest/v1/download_link_submissions?post_id=eq.${cleanup.createdPostId}&status=eq.pending&select=id,post_id,submitted_url,status`,
+      {
+        headers: authHeaders(anonKey, adminToken)
+      }
+    );
+    const submissionRow = Array.isArray(pendingSubmissionRes.json) ? pendingSubmissionRes.json[0] : null;
+    checks.push(
+      createCheck("admin:can-read-pending-download-links", Boolean(submissionRow), {
+        status: pendingSubmissionRes.status,
+        note: submissionRow ? "pending link visible to admin" : pendingSubmissionRes.text || "pending link not found"
+      })
+    );
+
+    if (submissionRow && submissionRow.id) {
+      const reviewRes = await apiRequest(baseUrl, "/rest/v1/rpc/review_download_link_submission", {
+        method: "POST",
+        headers: authHeaders(anonKey, adminToken),
+        body: JSON.stringify({
+          p_submission_id: submissionRow.id,
+          p_decision: "approved",
+          p_security_check_status: "passed",
+          p_security_notes: "Manual AV review complete: scanned with antivirus and no detections found.",
+          p_reviewed_by: "qa-bot"
+        })
+      });
+      checks.push(
+        createCheck("admin:approve-download-link", reviewRes.status < 300, {
+          status: reviewRes.status,
+          note: reviewRes.status < 300 ? "download link approved" : reviewRes.text
+        })
+      );
+
+      const postAfterApproval = await apiRequest(
+        baseUrl,
+        `/rest/v1/posts?id=eq.${cleanup.createdPostId}&select=id,software_url`,
+        {
+          headers: authHeaders(anonKey, nonAdminToken)
+        }
+      );
+      const approvedPost = Array.isArray(postAfterApproval.json) ? postAfterApproval.json[0] : null;
+      const linkVisibleAfterApproval = Boolean(approvedPost && approvedPost.software_url);
+      checks.push(
+        createCheck("feature:download-link-visible-after-approval", linkVisibleAfterApproval, {
+          status: postAfterApproval.status,
+          note: linkVisibleAfterApproval ? "link visible after admin approval" : "link still hidden after approval"
+        })
+      );
+    }
+  }
+
+  const blockedDomain = `malware-${runId}.example.com`;
+  const blockDomainRes = await apiRequest(baseUrl, "/rest/v1/blocked_link_domains", {
+    method: "POST",
+    headers: authHeaders(anonKey, adminToken),
+    body: JSON.stringify([{ domain: blockedDomain }])
+  });
+  checks.push(
+    createCheck("admin:ban-download-domain", blockDomainRes.status < 300 || String(blockDomainRes.text || "").toLowerCase().includes("duplicate"), {
+      status: blockDomainRes.status,
+      note: blockDomainRes.status < 300 ? `blocked ${blockedDomain}` : blockDomainRes.text
+    })
+  );
+
+  if (nonAdminUserId) {
+    const blockedLinkCreateRes = await apiRequest(baseUrl, "/rest/v1/posts", {
+      method: "POST",
+      headers: authHeaders(anonKey, nonAdminToken),
+      body: JSON.stringify({
+        title: `QA blocked-link thread ${runId}`,
+        body: "Blocked link validation",
+        category: "software",
+        software_url: `https://${blockedDomain}/tool.zip`,
+        tags: ["qa", "blocked-domain"],
+        author_name: nonAdminDisplayName,
+        author_user_id: nonAdminUserId
+      })
+    });
+    const blockedEnforced = blockedLinkCreateRes.status >= 400;
+    if (!blockedEnforced && Array.isArray(blockedLinkCreateRes.json) && blockedLinkCreateRes.json[0]?.id) {
+      cleanup.blockedLinkPostId = blockedLinkCreateRes.json[0].id;
+    }
+    checks.push(
+      createCheck("security:blocked-download-domain-enforced", blockedEnforced, {
+        status: blockedLinkCreateRes.status,
+        note: blockedEnforced ? "blocked domain rejected" : "blocked domain accepted"
+      })
+    );
+  }
+
   if (!cleanup.createdReportId && nonAdminUserId) {
     const latestMine = await apiRequest(
       baseUrl,
@@ -467,14 +630,20 @@ async function runAuthAndForumFlow(baseUrl, anonKey) {
     );
   }
 
+  if (cleanup.blockedLinkPostId) {
+    await apiRequest(baseUrl, `/rest/v1/posts?id=eq.${cleanup.blockedLinkPostId}`, {
+      method: "DELETE",
+      headers: authHeaders(anonKey, adminToken)
+    });
+  }
+
   if (adminUserId && nonAdminUserId) {
     const idA = String(nonAdminUserId);
     const idB = String(adminUserId);
-    const firstIsNonAdmin = idA < idB;
-    const requester_user_id = firstIsNonAdmin ? idA : idB;
-    const requester_name = firstIsNonAdmin ? nonAdminDisplayName : adminDisplayName;
-    const addressee_user_id = firstIsNonAdmin ? idB : idA;
-    const addressee_name = firstIsNonAdmin ? adminDisplayName : nonAdminDisplayName;
+    const requester_user_id = idA;
+    const requester_name = nonAdminDisplayName;
+    const addressee_user_id = idB;
+    const addressee_name = adminDisplayName;
 
     await apiRequest(
       baseUrl,
@@ -493,16 +662,45 @@ async function runAuthAndForumFlow(baseUrl, anonKey) {
         requester_name,
         addressee_user_id,
         addressee_name,
-        status: "accepted"
+        status: "pending"
       })
     });
     const addFriendOk = addFriendRes.status < 300 || String(addFriendRes.text || "").toLowerCase().includes("duplicate");
     checks.push(
       createCheck("feature:add-friend", addFriendOk, {
         status: addFriendRes.status,
-        note: addFriendOk ? "friendship created" : addFriendRes.text
+        note: addFriendOk ? "friend request sent" : addFriendRes.text
       })
     );
+
+    const pendingForAdmin = await apiRequest(
+      baseUrl,
+      `/rest/v1/friendships?requester_user_id=eq.${idA}&addressee_user_id=eq.${idB}&status=eq.pending&select=id,status`,
+      {
+        headers: authHeaders(anonKey, adminToken)
+      }
+    );
+    const pendingRow = Array.isArray(pendingForAdmin.json) ? pendingForAdmin.json[0] : null;
+    checks.push(
+      createCheck("feature:friend-request-visible-to-addressee", Boolean(pendingRow), {
+        status: pendingForAdmin.status,
+        note: pendingRow ? "request visible to addressee" : pendingForAdmin.text || "request not found"
+      })
+    );
+
+    if (pendingRow && pendingRow.id) {
+      const acceptRes = await apiRequest(baseUrl, `/rest/v1/friendships?id=eq.${pendingRow.id}`, {
+        method: "PATCH",
+        headers: authHeaders(anonKey, adminToken),
+        body: JSON.stringify({ status: "accepted", accepted_at: new Date().toISOString() })
+      });
+      checks.push(
+        createCheck("feature:accept-friend-request", acceptRes.status < 300 || acceptRes.status === 204, {
+          status: acceptRes.status,
+          note: acceptRes.status < 300 || acceptRes.status === 204 ? "friend request accepted" : acceptRes.text
+        })
+      );
+    }
 
     const listAfterAdd = await apiRequest(baseUrl, "/rest/v1/friendships?select=requester_name,addressee_name", {
       headers: authHeaders(anonKey, nonAdminToken)
@@ -537,6 +735,8 @@ async function runAuthAndForumFlow(baseUrl, anonKey) {
     );
   } else {
     checks.push(createCheck("feature:add-friend", false, { note: "missing user ids for friend test" }));
+    checks.push(createCheck("feature:friend-request-visible-to-addressee", false, { note: "missing user ids for friend test" }));
+    checks.push(createCheck("feature:accept-friend-request", false, { note: "missing user ids for friend test" }));
     checks.push(createCheck("feature:remove-friend", false, { note: "missing user ids for friend test" }));
   }
 
@@ -545,6 +745,7 @@ async function runAuthAndForumFlow(baseUrl, anonKey) {
 
 async function main() {
   const startedAt = new Date().toISOString();
+  const previousReport = loadPreviousReport();
   const { supabaseUrl, supabaseAnonKey } = parseConfig();
   const pagesBase = process.env.LIVE_BASE_URL || "https://ezzp024.github.io/polly-fourms";
 
@@ -595,6 +796,7 @@ async function main() {
 
   const allChecks = [...pageChecks, ...syntaxChecks, ...scriptChecks, ...flowChecks];
   const failed = allChecks.filter((c) => !c.ok);
+  const comparison = compareWithPrevious(previousReport, allChecks);
 
   const report = {
     startedAt,
@@ -605,12 +807,53 @@ async function main() {
     passedChecks: allChecks.length - failed.length,
     failedChecks: failed.length,
     overall: failed.length === 0 ? "PASS" : "FAIL",
+    comparison,
     checks: allChecks
   };
 
   fs.writeFileSync("qa-live-report.json", JSON.stringify(report, null, 2));
 
   const lines = [];
+  lines.push("Newly Discovered Issues (Top Priority):");
+  if (comparison.newlyDiscoveredIssues.length) {
+    for (const name of comparison.newlyDiscoveredIssues) {
+      lines.push(`- ${name}`);
+    }
+  } else {
+    lines.push("- none");
+  }
+  lines.push("");
+
+  lines.push("Unresolved Issues From Previous Run:");
+  if (comparison.unresolvedFromLastRun.length) {
+    for (const name of comparison.unresolvedFromLastRun) {
+      lines.push(`- ${name}`);
+    }
+  } else {
+    lines.push("- none");
+  }
+  lines.push("");
+
+  lines.push("Fixed Since Previous Run:");
+  if (comparison.fixedSinceLastRun.length) {
+    for (const name of comparison.fixedSinceLastRun) {
+      lines.push(`- ${name}`);
+    }
+  } else {
+    lines.push("- none");
+  }
+  lines.push("");
+
+  lines.push("Potential False-Fix Claims:");
+  if (comparison.potentialFalseFixClaims.length) {
+    for (const name of comparison.potentialFalseFixClaims) {
+      lines.push(`- ${name}`);
+    }
+  } else {
+    lines.push("- none");
+  }
+  lines.push("");
+
   lines.push(`Live QA Bot: ${report.overall}`);
   lines.push(`Checks: ${report.passedChecks}/${report.totalChecks} passed`);
   lines.push(`Base URL: ${pagesBase}`);
