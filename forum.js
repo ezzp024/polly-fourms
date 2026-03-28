@@ -264,7 +264,14 @@
     const softwareUrl = String(form.get("softwareUrl") || "").trim();
     const tags = normalizeTags(String(form.get("tags") || ""));
 
-    if (!title || !body) return;
+    if (!title || !body) {
+      showPageNotice("Title and body are required.", "warning", 3200);
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
+      return;
+    }
 
     const gate = canPerform("create_thread", 15000);
     if (!gate.ok) {

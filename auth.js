@@ -88,12 +88,16 @@
     return;
   }
 
-  showTab(loadSavedTab());
+  const savedTab = loadSavedTab();
+  showTab(savedTab);
 
   if (!allowRegistration && registerSection) {
     registerSection.style.display = "none";
     if (resendForm) {
       resendForm.style.display = "none";
+    }
+    if (savedTab === "register" || savedTab === "resend") {
+      showTab("login");
     }
   }
 

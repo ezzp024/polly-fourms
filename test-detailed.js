@@ -26,7 +26,8 @@ async function test() {
   console.log('\n1. REPORTS READ:');
   console.log('   Status:', reportsRes.status);
   console.log('   Data count:', Array.isArray(reportsData) ? reportsData.length : 'error');
-  console.log('   SECURE:', reportsRes.status >= 400 ? 'YES' : 'NO - can read!');
+  const reportsBlocked = reportsRes.status >= 400 || (Array.isArray(reportsData) && reportsData.length === 0);
+  console.log('   SECURE:', reportsBlocked ? 'YES' : 'NO - can read!');
   
   // Get posts to test with
   const postsRes = await fetch(url + '/rest/v1/posts?select=id,title,author_user_id&order=created_at.desc&limit=10', { headers: h });
