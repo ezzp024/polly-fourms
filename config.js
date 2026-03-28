@@ -12,5 +12,8 @@ window.POLLY_CONFIG = {
   moderatorNames: ["admin"],
 
   // Nicknames with full admin label in local/demo mode.
-  adminNames: ["admin"]
+  adminNames: ["admin"],
+
+  // Set false to disable self-service registration.
+  allowRegistration: true
 };

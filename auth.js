@@ -2,6 +2,7 @@
   const statusEl = document.getElementById("authStatus");
   const registerForm = document.getElementById("registerForm");
   const resendForm = document.getElementById("resendForm");
+  const registerBlock = document.getElementById("registerBlock");
   const loginForm = document.getElementById("loginForm");
   const registerEmail = document.getElementById("registerEmail");
   const registerPassword = document.getElementById("registerPassword");
@@ -10,6 +11,7 @@
   const resendEmail = document.getElementById("resendEmail");
 
   const client = window.PollyCommon.createAuthClient();
+  const allowRegistration = (window.POLLY_CONFIG || {}).allowRegistration !== false;
 
   const params = new URLSearchParams(window.location.search);
   const next = window.PollyCommon.sanitizeNextPath(params.get("next") || "index.html");
@@ -29,6 +31,10 @@
   if (!client) {
     statusEl.textContent = "Supabase is not configured yet.";
     return;
+  }
+
+  if (!allowRegistration && registerBlock) {
+    registerBlock.style.display = "none";
   }
 
   async function refreshStatus() {
@@ -72,8 +78,18 @@
 
   registerForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!allowRegistration) {
+      statusEl.textContent = "Registration is disabled. Contact an administrator.";
+      return;
+    }
+
     const email = String(registerEmail.value || "").trim();
     const password = String(registerPassword.value || "");
+
+    if (password.length < 10) {
+      statusEl.textContent = "Register failed: password must be at least 10 characters.";
+      return;
+    }
 
     try {
       const { data, error } = await client.auth.signUp({
